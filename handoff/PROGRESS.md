@@ -53,6 +53,15 @@ Vite 8 + React 19 + TypeScript 7 + Vitest 5 in `web/` (0 npm audit findings). Te
 - README rewritten: agent quickstart at the top, human run instructions at the bottom.
 - Not done / honest limits: only macOS arm64 was built and run; Linux/Windows packaging is untested; no code signing or notarization (Gatekeeper may need `xattr -dr com.apple.quarantine`); no CI workflow; the repo is private.
 
+## 2026-10-28 M5 public repo + universal distribution
+- Repo made public after an audit (no secrets, no personal files; history has only the GitHub noreply email). Enabled secret scanning + push protection, Dependabot alerts/updates, private vulnerability reporting, read-only default workflow token, SHA-pinning required, fork-PR approval.
+- Universal run options: (1) per-OS zips from GitHub Releases (darwin arm64/x64, linux x64/arm64, win32 x64) built by `release.yml`, (2) Docker image on GHCR (multi-arch), (3) source checkout. `build-portable.mjs` made cross-platform (postject via node, npm shell on Windows, tar zip on Windows).
+- CI (`ci.yml`): ubuntu + macOS run web tests and the full backend suite with the 80% gate, `npm audit`, plus a Docker job that builds the image and smoke-tests it hardened (read-only, cap-drop ALL, non-root, Host check). First CI run also proved the backend suite passes on Linux.
+- Bug found by CI: Tectonic panics at startup without a CA bundle (`No CA certificates were loaded`), even for cached compiles; `node:24-slim` has none. Fixed by installing `ca-certificates` in the image. `warmup.mjs` now exits non-zero on failure (it silently hid this during the image build).
+- Pages: `site/` static landing page deployed by `pages.yml` to https://rajatgedam.github.io/LatexToPDF/. Deliberately NOT a hosted converter (see SECURITY_RULES R5.8).
+- Release publishing is intentionally manual: push a `v*` tag. A manual run of `release.yml` only builds and smoke-tests (offline compile on each OS).
+- GHCR packages start private even for public repos; after the first release flip the package to public in GitHub (Packages > latextopdf > settings). Not scriptable via the REST API.
+
 ### Ideas for next sessions
 - GitHub Actions: unit + web tests on every push (integration needs the engine download).
 - Linux sandbox via bubblewrap/Landlock; Windows AppContainer.

@@ -50,7 +50,11 @@ src/server/index.mjs     startServer(), browserCommand()
 src/server/launch.mjs    launchUi(): warnings + start + open browser (shared by bin/latex2pdf-ui.mjs and the portable binary)
 src/portable.mjs         decideMode()/main() for the single-file executable (UI vs CLI), root = folder of the binary
 src/portable-entry.mjs   bundle entry (CJS, no top-level await)
-scripts/                 install-engine, warmup (prime package cache), build-portable (+ build-lib helpers)
+scripts/                 install-engine, warmup (prime package cache; exits 1 on failure), build-portable (+ build-lib helpers; cross-platform)
+Dockerfile, .dockerignore  multi-stage image (digest-pinned node:24-slim + ca-certificates, engine installed and cache warmed at build, non-root)
+.github/workflows/       ci.yml (tests on ubuntu+macos, audit, Docker smoke), release.yml (5-OS zips + Docker multi-arch on `v*` tags; manual run = dry run), pages.yml (deploys `site/`)
+site/                    static landing page for GitHub Pages (no JS)
+SECURITY.md              vulnerability reporting policy
 LatexToPDF.command       double-click launcher for a source checkout
 web/                     React app (Vite + TS); `npm run build:web` -> web/dist, served by the server
 test/unit, test/integration, test/helpers (fake engine)

@@ -40,6 +40,9 @@ These are rules, not suggestions. Every rule has a test in `test/`. Do not weake
 - R5.3 Frontend dependencies are pinned by lockfile; run `npm audit --omit=dev` before release; fix high/critical.
 - R5.4 No remote scripts/fonts/CDNs in the UI (CSP would block them anyway).
 - R5.5 Secrets: none are needed. Never commit `.env`. GitHub token stays in the OS keyring (gh CLI).
+- R5.6 CI/CD (public repo): every GitHub Action is first-party and pinned to a commit SHA (repo setting `sha_pinning_required` is on); workflows default to `contents: read` and elevate per job only (`contents: write`, `packages: write`, `id-token`/`attestations: write` only in release jobs); default workflow token is read-only and cannot approve PRs; fork PR workflows need approval; `persist-credentials: false` on checkout; no `pull_request_target`; releases are only published from `v*` tags and carry SHA256SUMS plus build-provenance attestations; Dependabot updates actions, npm and Docker; secret scanning + push protection, Dependabot alerts and private vulnerability reporting are enabled.
+- R5.7 Docker: base image pinned by digest, non-root user, CA bundle only, no secrets in layers; recommended run flags `-p 127.0.0.1:5757:5757 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges`. CI smoke-tests exactly this.
+- R5.8 Never host a public compile service: LaTeX is code execution. Pages hosts only a static landing page (`site/`, no JS, CSP meta).
 
 ## R6 Privacy
 - R6.1 No telemetry, no analytics, no outbound calls except Tectonic package fetch (and only when not offline).
