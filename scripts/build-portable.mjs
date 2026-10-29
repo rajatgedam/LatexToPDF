@@ -137,7 +137,8 @@ if (flags.has("--zip")) {
   const zip = path.join(root, "dist", `${name}.zip`);
   await rm(zip, { force: true });
   if (platform === "darwin") run("ditto", ["-c", "-k", "--keepParent", outDir, zip]);
-  else if (platform === "win32") run("tar", ["-a", "-c", "-f", zip, "-C", path.join(root, "dist"), name]);
+  // Git Bash puts GNU tar first on PATH (it cannot make zips and mistakes "D:" for a host), so use PowerShell on Windows.
+  else if (platform === "win32") run("powershell", ["-NoProfile", "-Command", `Compress-Archive -Path '${outDir}' -DestinationPath '${zip}' -Force`]);
   else run("zip", ["-9qr", zip, name], { cwd: path.join(root, "dist") });
   console.log(`zip: ${zip} (${mb((await stat(zip)).size)})`);
 }
