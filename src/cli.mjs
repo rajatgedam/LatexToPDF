@@ -69,7 +69,7 @@ function parse(argv) {
 }
 
 /** Testable CLI entry. Returns the process exit code. */
-export async function runCli(argv, { env = process.env, stdin = process.stdin, stdout = process.stdout, stderr = process.stderr } = {}) {
+export async function runCli(argv, { env = process.env, stdin = process.stdin, stdout = process.stdout, stderr = process.stderr, projectRoot } = {}) {
   let json = argv.includes("--json");
   const emit = (obj, text) => stdout.write(json ? `${JSON.stringify(obj)}\n` : `${text}\n`);
   const fail = (err) => {
@@ -93,7 +93,7 @@ export async function runCli(argv, { env = process.env, stdin = process.stdin, s
       stdout.write(USAGE);
       return 0;
     }
-    const config = loadConfig(env);
+    const config = loadConfig(env, projectRoot ? { projectRoot } : {});
     if (args.check) {
       const { path: _omit, ...engine } = await engineInfo(config);
       emit({ ok: engine.found, engine }, engine.found ? `engine ok: ${engine.version}` : "engine not found");

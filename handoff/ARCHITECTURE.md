@@ -1,6 +1,6 @@
 # Architecture (source of truth)
 
-If code and this file disagree, fix one of them in the same commit. Last verified: 2026-10-28 (M1, M2, M3 built and verified; M4 packaging is still design, marked [planned]).
+If code and this file disagree, fix one of them in the same commit. Last verified: 2026-10-28 (M1-M4 built and verified on macOS arm64).
 
 ## Goal
 
@@ -19,7 +19,7 @@ Local-only tool that turns LaTeX (or plain text) into a PDF. Three entry points 
 | TeX engine | [Tectonic](https://github.com/tectonic-typesetting/tectonic) 0.17.0 (MIT, XeTeX based) | Single self-contained binary, no TeX Live (4+ GB), never prompts, shell-escape off by default, reproducible bundles, local package cache | TeX Live/MacTeX (huge), `brew install tectonic` (22 deps, upgrades shared libs), WASM engines (slow, immature package coverage) |
 | Backend | Node.js >= 22, ESM, **zero runtime dependencies** | Smallest supply-chain surface; `node:http`, `node:test`, `node:child_process` are enough | Express/Fastify (extra deps not needed) |
 | Frontend | Vite + React 19 + TypeScript, Vitest + Testing Library | Requested React; fast build; static output served by the backend | Next.js (needless server) |
-| Packaging | Folder: Node SEA launcher + `web/` + `bin/tectonic` + cache | Portable, no Node install needed on target | Electron (150 MB+), Tauri (needs Rust toolchain) |
+| Packaging | Folder: Node SEA launcher (esbuild bundle + postject) + `web/dist` + `vendor/tectonic` + cache | Portable, no Node install needed on target, UI and CLI in one binary | Electron (150 MB+), Tauri (needs Rust toolchain) |
 
 Engine binary is downloaded from the official GitHub release by `scripts/install-engine.mjs`, pinned by version and **SHA-256 verified** before extraction. Binary lives in `vendor/` (git-ignored).
 
@@ -47,7 +47,11 @@ src/server/rate-limit.mjs token bucket per IP, bounded memory
 src/server/body.mjs      streaming body reader with byte cap
 src/server/static.mjs    safe static files for web/dist (traversal + symlink escape protected)
 src/server/index.mjs     startServer(), browserCommand()
-scripts/                 install-engine, warmup (prime package cache), [planned] build-portable
+src/server/launch.mjs    launchUi(): warnings + start + open browser (shared by bin/latex2pdf-ui.mjs and the portable binary)
+src/portable.mjs         decideMode()/main() for the single-file executable (UI vs CLI), root = folder of the binary
+src/portable-entry.mjs   bundle entry (CJS, no top-level await)
+scripts/                 install-engine, warmup (prime package cache), build-portable (+ build-lib helpers)
+LatexToPDF.command       double-click launcher for a source checkout
 web/                     React app (Vite + TS); `npm run build:web` -> web/dist, served by the server
 test/unit, test/integration, test/helpers (fake engine)
 examples/resume.tex      known-good sample (XeTeX compatible)

@@ -8,7 +8,7 @@ Append-only milestone log. Newest at the bottom. Update after every milestone (a
 | M1 | Core compiler + CLI + engine installer (TDD) | done | 2026-10-28 |
 | M2 | Secure local HTTP server | done | 2026-10-28 |
 | M3 | React UI (editor, drop zone, preview, download) | done | 2026-10-28 |
-| M4 | Portable package + final README | todo | |
+| M4 | Portable package + final README | done | 2026-10-28 |
 
 ## 2026-10-28 M0 research notes
 - No LaTeX engine was installed. Chosen: Tectonic 0.17.0 standalone binary (MIT). `brew install tectonic` was declined because it pulls 20 new deps and upgrades `gettext`/`libunistring`.
@@ -42,3 +42,19 @@ Vite 8 + React 19 + TypeScript 7 + Vitest 5 in `web/` (0 npm audit findings). Te
 - Visual QA in the integrated browser: page loads under the strict CSP, compile works end to end, the blob PDF viewer loads in the iframe (`frame-src blob:` is sufficient), error state renders the sanitized log with the mascot. System dark mode was active during QA; the light palette has not been checked visually.
 - Dev: `npm --prefix web run dev` (port 5173, proxies /api to 5757 and strips Origin so the CSRF check passes). Start the API with `node bin/latex2pdf-ui.mjs --no-open`.
 - Known nit: the hidden file input shows up as an extra "Open a .tex or .txt file" button in the accessibility tree.
+
+## 2026-10-28 M4 portable package + README
+- `npm run package` (`scripts/build-portable.mjs`, helpers in `scripts/build-lib.mjs`, unit tested): esbuild bundles `src/portable-entry.mjs` to one CJS file, Node SEA blob injected with postject into a copy of the node binary (macOS: `lipo -thin` the universal node to the host arch, `codesign --remove-signature` before and ad-hoc `codesign --sign -` after). Output `dist/LatexToPDF-<platform>-<arch>/`: `latex2pdf` (111 MB, UI + CLI in one), `vendor/tectonic`, `vendor/tectonic-cache` (45 MB, omit with `--no-cache`), `web/dist`, `examples/`, launcher (`LatexToPDF.command` on macOS), `READ-ME-FIRST.txt`. Total about 207 MB. `--zip` makes a zip.
+- The executable resolves everything relative to its own folder (`projectRoot = dirname(execPath)`), so the folder can be moved. No args or `ui` starts the web UI; any other args are the CLI (a leading `compile` is accepted).
+- Verified from a copy in /tmp with a scrubbed environment (no Node on PATH): `--check`, offline compile of the example (0.4 s, sandbox on), UI serving + API compile. Gated integration test `test/integration/portable.test.mjs` covers this when a build exists.
+- Shared `src/server/launch.mjs` now backs both `bin/latex2pdf-ui.mjs` and the portable entry. `config.mjs` falls back to cwd when `import.meta.url` is unavailable (bundle).
+- Root `LatexToPDF.command` is a double-click launcher for a source checkout (runs `npm run setup` on first use).
+- Light theme checked visually via Playwright color-scheme emulation: warm cream paper, coral primary, indigo ink; looks right.
+- README rewritten: agent quickstart at the top, human run instructions at the bottom.
+- Not done / honest limits: only macOS arm64 was built and run; Linux/Windows packaging is untested; no code signing or notarization (Gatekeeper may need `xattr -dr com.apple.quarantine`); no CI workflow; the repo is private.
+
+### Ideas for next sessions
+- GitHub Actions: unit + web tests on every push (integration needs the engine download).
+- Linux sandbox via bubblewrap/Landlock; Windows AppContainer.
+- Multi-file projects (zip with images/bib) with a validated, sandboxed extraction.
+- Template gallery for the UI; PDF page thumbnails; export `.tex` back.

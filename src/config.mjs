@@ -2,7 +2,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { LatexToPdfError } from "./errors.mjs";
 
-const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// import.meta.url is unavailable in the bundled single-file executable; callers pass projectRoot there.
+const DEFAULT_ROOT = (() => {
+  try {
+    return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  } catch {
+    return process.cwd();
+  }
+})();
 const LOOPBACK = new Set(["127.0.0.1", "::1", "localhost"]);
 const INT_MAX = 2 ** 31 - 1;
 
