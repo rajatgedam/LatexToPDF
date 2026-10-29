@@ -7,7 +7,7 @@
 # tools and their libraries), the engines those tools need, and the web app. No node_modules, no sources.
 ARG TOOLS=all
 
-FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
+FROM node:25-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS build
 ARG TOOLS
 # Tectonic builds a TLS client at startup and panics without a CA bundle.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -29,7 +29,7 @@ RUN set -e; T=""; if [ "$TOOLS" != "all" ]; then T="$(echo "$TOOLS" | tr ',' ' '
     node bin/toolmaster.mjs install $T && node bin/toolmaster.mjs warmup $T && \
     node scripts/build-portable.mjs --tools "$TOOLS" --runtime node --no-pack --out /out
 
-FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+FROM node:25-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370
 LABEL org.opencontainers.image.source="https://github.com/rajatgedam/ToolMaster" \
       org.opencontainers.image.licenses="MIT"
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
