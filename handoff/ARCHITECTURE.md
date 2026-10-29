@@ -1,6 +1,6 @@
 # Architecture (source of truth)
 
-If code and this file disagree, fix one of them in the same commit. Last verified: 2026-10-28 (M1 built and verified; M2-M4 sections are still design, marked [planned]).
+If code and this file disagree, fix one of them in the same commit. Last verified: 2026-10-28 (M1 and M2 built and verified; M3-M4 sections are still design, marked [planned]).
 
 ## Goal
 
@@ -27,7 +27,7 @@ Engine binary is downloaded from the official GitHub release by `scripts/install
 
 ```
 bin/latex2pdf.mjs        CLI (thin: calls src/cli.mjs runCli)
-bin/latex2pdf-ui.mjs     [planned] starts the local server, opens the browser
+bin/latex2pdf-ui.mjs     starts the local server, opens the browser (`--no-open` to skip)
 src/index.mjs            public API surface (re-exports + shared default compiler)
 src/cli.mjs              arg parsing, exit codes, JSON output (testable: runCli(argv, io))
 src/config.mjs           env -> validated frozen config object (12-factor)
@@ -40,7 +40,13 @@ src/compile.mjs          createCompiler(config): validate -> compat -> engine ->
 src/limiter.mjs          non-blocking concurrency limiter
 src/pdf.mjs              countPages() (handles compressed object streams)
 src/installer.mjs        pinned engine asset table + sha256 check (used by scripts/install-engine.mjs)
-src/server/*.mjs         [planned] http server, security headers, rate limit, host/origin checks, static files
+src/sandbox.mjs          macOS Seatbelt (sandbox-exec) wrapper: no reads of /Users etc. except work/cache/engine dirs, writes only in work/cache
+src/server/app.mjs       createApp (routes, host/origin checks, rate limit, headers) + listen with port fallback
+src/server/security.mjs  CSP + headers, host/origin allowlists
+src/server/rate-limit.mjs token bucket per IP, bounded memory
+src/server/body.mjs      streaming body reader with byte cap
+src/server/static.mjs    safe static files for web/dist (traversal + symlink escape protected)
+src/server/index.mjs     startServer(), browserCommand()
 scripts/                 install-engine, warmup (prime package cache), [planned] build-portable
 web/                     [planned] React app (built to web/dist, served by the server)
 test/unit, test/integration, test/helpers (fake engine)
@@ -71,11 +77,11 @@ CLI exit codes: `0` ok, `1` unexpected, `2` bad usage/input/output path/config, 
 
 CLI `--json` prints one JSON object to stdout: `{ ok, outputPath?, bytes?, pages?, durationMs?, warnings?, error?: { code, message, log? } }`. `--check` verifies the engine. `-i -` reads stdin.
 
-## HTTP API (local UI backend) [planned, M2]
+## HTTP API (local UI backend)
 
-- `GET /api/health` -> `{ ok, engine: { found, version } }`
-- `POST /api/compile` body `application/json {"source": "...", "mode": "auto"}` or `text/plain`/`application/x-tex` raw body -> `200 application/pdf` or JSON error `{ error: { code, message, log? } }` with 400/413/415/422/429/503/504.
-- everything else: static files from `web/dist` (SPA fallback to `index.html`), GET/HEAD only.
+- `GET /api/health` -> `{ ok, engine: { found, version } }` (cached 30 s, no paths)
+- `POST /api/compile` body `application/json {"source": "...", "mode": "auto"}` or `text/plain`/`application/x-tex` raw body -> `200 application/pdf` (headers `X-Latex2pdf-Pages`, `X-Latex2pdf-Duration-Ms`) or JSON `{ error: { code, message, log? } }`. Status map: `INPUT_EMPTY`/`INPUT_INVALID` 400, `INPUT_TOO_LARGE` 413, unsupported content type 415, `POLICY_VIOLATION`/`COMPILE_FAILED`/`OUTPUT_TOO_LARGE` 422, rate limit 429, `BUSY`/`ENGINE_NOT_FOUND` 503 (BUSY has Retry-After), `TIMEOUT` 504, forbidden Host/Origin 403, unexpected 500 (`INTERNAL`, generic message). Client disconnect aborts the compile.
+- everything else: static files from `web/dist` (SPA fallback to `index.html` for extensionless paths; 503 with a hint if not built), GET/HEAD only, other methods 405.
 
 Default bind `127.0.0.1:5757` (falls back to a free port if busy and `LATEX2PDF_PORT` is unset).
 
@@ -91,7 +97,9 @@ Default bind `127.0.0.1:5757` (falls back to a free port if busy and `LATEX2PDF_
 | `LATEX2PDF_MAX_CONCURRENCY` | `2` | Parallel compiles, extra requests get `BUSY`/503 |
 | `LATEX2PDF_RATE_LIMIT_PER_MIN` | `60` | Per-IP HTTP rate limit |
 | `LATEX2PDF_ENGINE` | auto | Absolute path to a tectonic binary (overrides vendor/PATH) |
-| `LATEX2PDF_OFFLINE` | `0` | `1` = tectonic `--only-cached` (no network) |
+| `LATEX2PDF_OFFLINE` | `0` | `1` = tectonic `--only-cached` (no network) and sandbox denies network |
+| `LATEX2PDF_SANDBOX` | `auto` | `auto` use OS sandbox if available (macOS only today), `on` require it, `off` disable |
+| `LATEX2PDF_ALLOWED_HOSTS` | empty | Extra Host header names (comma list) when remote access is enabled |
 | `TECTONIC_CACHE_DIR` | `<repo>/vendor/tectonic-cache` | Package cache (portable) |
 
 ## Constraints worth remembering

@@ -4,6 +4,7 @@ import { constants } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { LatexToPdfError } from "./errors.mjs";
+import { wrapWithSandbox } from "./sandbox.mjs";
 
 const IS_WIN = process.platform === "win32";
 const MAX_LOG_CHARS = 256 * 1024;
@@ -115,7 +116,8 @@ export async function runEngine({ tex, config, timeoutMs = config.timeoutMs, sig
     await writeFile(path.join(workdir, "main.tex"), tex, { flag: "wx", mode: 0o600 });
     const args = ["-X", "compile", "--untrusted", "--print", "--outdir", workdir, ...(config.offline ? ["--only-cached"] : []), "main.tex"];
     const scrub = await sanitizer(workdir);
-    const { code, log: rawLog, reason } = await execute(engine, args, { cwd: workdir, env: childEnv(config, workdir), timeoutMs, signal });
+    const run = await wrapWithSandbox({ engine, engineArgs: args, workdir, config });
+    const { code, log: rawLog, reason } = await execute(run.cmd, run.args, { cwd: workdir, env: childEnv(config, workdir), timeoutMs, signal });
     const log = scrub(rawLog);
 
     if (reason) throw new LatexToPdfError("TIMEOUT", reason === "timeout" ? `Compilation exceeded ${timeoutMs} ms` : "Compilation cancelled", { log: tail(log) });

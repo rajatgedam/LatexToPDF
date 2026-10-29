@@ -10,7 +10,7 @@ import { makeFakeEngine, TEX } from "../helpers/fake-engine.mjs";
 let fake;
 let tmpRoot;
 const cfg = (extra = {}, env = {}) =>
-  loadConfig({ LATEX2PDF_ENGINE: fake.path, TECTONIC_CACHE_DIR: os.tmpdir() + "/l2p-test-cache", ...env }, extra);
+  loadConfig({ LATEX2PDF_ENGINE: fake.path, LATEX2PDF_SANDBOX: "off", TECTONIC_CACHE_DIR: os.tmpdir() + "/l2p-test-cache", ...env }, extra);
 const run = (marker, env, opts = {}) => runEngine({ tex: TEX(marker), config: cfg({}, env), timeoutMs: 5000, tmpRoot, ...opts });
 const leftovers = () => readdir(tmpRoot);
 

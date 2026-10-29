@@ -22,10 +22,13 @@ export function loadConfig(env = process.env, { projectRoot = DEFAULT_ROOT } = {
   if (!LOOPBACK.has(host) && !allowRemote) {
     throw new LatexToPdfError("CONFIG_INVALID", "Non-loopback LATEX2PDF_HOST requires LATEX2PDF_ALLOW_REMOTE=1");
   }
+  const sandbox = env.LATEX2PDF_SANDBOX || "auto";
+  if (!["auto", "on", "off"].includes(sandbox)) throw new LatexToPdfError("CONFIG_INVALID", "LATEX2PDF_SANDBOX must be auto, on or off");
   return Object.freeze({
     projectRoot,
     host,
     allowRemote,
+    allowedHosts: (env.LATEX2PDF_ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean),
     port: int(env, "LATEX2PDF_PORT", 5757, 65535),
     portExplicit: Boolean(env.LATEX2PDF_PORT),
     maxInputBytes: int(env, "LATEX2PDF_MAX_INPUT_BYTES", 1_048_576),
@@ -35,6 +38,7 @@ export function loadConfig(env = process.env, { projectRoot = DEFAULT_ROOT } = {
     rateLimitPerMin: int(env, "LATEX2PDF_RATE_LIMIT_PER_MIN", 60, 100_000),
     enginePath: env.LATEX2PDF_ENGINE || null,
     offline: env.LATEX2PDF_OFFLINE === "1",
+    sandbox,
     cacheDir: env.TECTONIC_CACHE_DIR || path.join(projectRoot, "vendor", "tectonic-cache"),
   });
 }

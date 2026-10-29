@@ -24,7 +24,8 @@ These are rules, not suggestions. Every rule has a test in `test/`. Do not weake
 - R3.4 Scrubbed environment: only `PATH` (minimal), `HOME` unchanged for cache lookup, `TECTONIC_CACHE_DIR`, `LANG`. No inherited secrets (`GITHUB_TOKEN`, cloud keys etc.).
 - R3.5 Wall-clock timeout with SIGKILL of the whole process group; output size cap; stdout/stderr capture capped.
 - R3.6 Concurrency limit; overflow returns `BUSY` immediately (no unbounded queue = no memory DoS).
-- R3.7 `LATEX2PDF_OFFLINE=1` adds `--only-cached` so the engine makes no network calls.
+- R3.7 `LATEX2PDF_OFFLINE=1` adds `--only-cached` so the engine makes no network calls (and the sandbox denies network).
+- R3.8 OS sandbox (`src/sandbox.mjs`, macOS `sandbox-exec`, default `auto`): the engine cannot read `/Users`, `/Volumes`, `/private/tmp`, `/private/var/folders` except its work dir, package cache and engine dir, and cannot write outside work dir/cache. Paths are passed as `-D` params, never interpolated into the profile. Integration tests prove an absolute `\input` of a secret fails even with the policy scan bypassed. **Linux/Windows have no sandbox yet** (backlog: bubblewrap/Landlock, AppContainer); there the policy scan (R2.4) is the only file-read barrier.
 
 ## R4 HTTP hardening
 - R4.1 Security headers on every response: `Content-Security-Policy` (`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `Permissions-Policy` (deny camera/mic/geo), `Cache-Control: no-store` on API.

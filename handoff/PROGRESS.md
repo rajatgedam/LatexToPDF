@@ -6,7 +6,7 @@ Append-only milestone log. Newest at the bottom. Update after every milestone (a
 | --- | --- | --- | --- |
 | M0 | Scaffold, handoff docs, research, GitHub repo | done | 2026-10-28 |
 | M1 | Core compiler + CLI + engine installer (TDD) | done | 2026-10-28 |
-| M2 | Secure local HTTP server | todo | |
+| M2 | Secure local HTTP server | done | 2026-10-28 |
 | M3 | React UI (editor, drop zone, preview, download) | todo | |
 | M4 | Portable package + final README | todo | |
 
@@ -26,5 +26,12 @@ Built test-first: config, input, compat, validate, engine, limiter, pdf, compile
 - Tool lesson: terminal summaries of long hashes can be corrupted; write values to a file and read them back (a Windows digest was truncated once).
 
 ### Backlog / ideas
-- OS-level sandbox for the engine (macOS `sandbox-exec` deny file-read outside work/cache dir; Linux bubblewrap/landlock) as defense in depth for R3. Planned for M2.
+- Linux/Windows engine sandbox (bubblewrap / Landlock / AppContainer). macOS is done (see M2).
 - `compat.mjs` is whole-line only; extend if a template needs inline fixes.
+
+## 2026-10-28 M2 secure server
+Tests first again: 126 unit + 27 integration tests now (153 total), coverage on `src/` 97.9% lines / 91% branches.
+- `src/server/*`: `node:http` only. Host allowlist (DNS rebinding), Origin + `Sec-Fetch-Site` checks on non-GET (CSRF), no CORS ever, strict CSP and friends, per-IP token bucket (60/min), streaming body cap, content-type allowlist, generic 500s, client disconnect aborts the compile, static server with traversal and symlink-escape protection.
+- `bin/latex2pdf-ui.mjs` starts the server and opens the browser (fixed argv, loopback-only URL check). Port 5757, falls back to a free port when busy and `LATEX2PDF_PORT` is unset.
+- `src/sandbox.mjs`: macOS Seatbelt wrapper (default `auto`). Verified with the real engine: absolute-path read of a secret and of `~/.zshrc` fail, writes outside work dir blocked, cold-cache package download still works inside the sandbox.
+- Fake-engine unit tests set `LATEX2PDF_SANDBOX=off` (the fake needs to read node from /Users). Real-engine tests run with the sandbox on by default.

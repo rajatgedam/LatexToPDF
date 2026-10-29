@@ -40,6 +40,11 @@ test("non-loopback host requires explicit opt-in", () => {
   assert.equal(c.allowRemote, true);
 });
 
+test("allowed hosts are parsed, trimmed and lowercased", () => {
+  assert.deepEqual(loadConfig({ LATEX2PDF_ALLOWED_HOSTS: " My-Box.local ,, other.lan " }).allowedHosts, ["my-box.local", "other.lan"]);
+  assert.deepEqual(loadConfig({}).allowedHosts, []);
+});
+
 test("config object is frozen", () => {
   const c = loadConfig({});
   assert.throws(() => {

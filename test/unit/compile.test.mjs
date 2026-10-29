@@ -10,7 +10,7 @@ import { makeFakeEngine, TEX } from "../helpers/fake-engine.mjs";
 let fake;
 let dir;
 const make = (env = {}) =>
-  createCompiler(loadConfig({ LATEX2PDF_ENGINE: fake.path, TECTONIC_CACHE_DIR: path.join(dir, "cache"), LATEX2PDF_MAX_INPUT_BYTES: "5000", ...env }));
+  createCompiler(loadConfig({ LATEX2PDF_ENGINE: fake.path, LATEX2PDF_SANDBOX: "off", TECTONIC_CACHE_DIR: path.join(dir, "cache"), LATEX2PDF_MAX_INPUT_BYTES: "5000", ...env }));
 
 before(async () => {
   fake = await makeFakeEngine();

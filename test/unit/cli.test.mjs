@@ -9,7 +9,7 @@ import { makeFakeEngine, TEX } from "../helpers/fake-engine.mjs";
 
 let fake;
 let dir;
-const env = () => ({ LATEX2PDF_ENGINE: fake.path, TECTONIC_CACHE_DIR: path.join(dir, "cache") });
+const env = () => ({ LATEX2PDF_ENGINE: fake.path, LATEX2PDF_SANDBOX: "off", TECTONIC_CACHE_DIR: path.join(dir, "cache") });
 
 async function cli(args, { stdin = "" } = {}) {
   let out = "";
