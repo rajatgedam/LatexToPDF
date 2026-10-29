@@ -4,6 +4,7 @@ import { mkdtemp, writeFile, rm, access, readFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createToolMaster } from "../../index.mjs";
 import { SANDBOX_EXEC } from "../../sandbox.mjs";
 import { fakeTool } from "../../../test/helpers/fake-tool.mjs";
@@ -56,7 +57,7 @@ after(async () => {
 });
 
 test("an isolated worker cannot read the home folder, write outside its folder, list /Users or reach the network", opts, async () => {
-  const home = path.join(os.homedir(), ".zshrc");
+  const home = fileURLToPath(import.meta.url); // a file that exists under /Users on every Mac; a missing file would report ENOENT instead of EPERM
   const target = path.join(dir, "outside.txt");
   const probe = JSON.stringify([String(port), home, target]);
   const r = JSON.parse((await tm.runner.run("probe", { input: probe })).data.toString());
