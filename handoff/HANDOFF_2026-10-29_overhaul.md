@@ -14,6 +14,12 @@ Goal of the session: keep size flat while adding ten more tools later, research 
 - **Cleanup**: removed `scripts/prune-tools.mjs`, stale `vendor/tectonic-cache`, `dist/`, stray draft files.
 - Version 0.3.0 (`core/version.mjs` must equal `package.json`).
 
+## CI status (update this first thing next session)
+- Commit `faeed2a` (the overhaul): Docker (all, pdf-pages only, latex-to-docx only) and the lite-bundle smoke test passed on GitHub; both Test jobs (ubuntu, macOS) failed with `ECONNREFUSED` in `core/test/integration/server.test.mjs`. Cause: a top-level `await readFile(...)` placed between tests let the node:test runner fire the file's `after()` hook (server close) early. Not a product bug.
+- Fix pushed as `dc7749f` (fixture is read next to the other top-level awaits). CI run `40970281809` was still running when this session stopped: check it with `gh run view 40970281809 -R rajatgedam/ToolMaster --json status,conclusion,jobs`. Rule: never put a top-level `await` between `test(...)` calls in a file that has `before`/`after` hooks.
+- Not yet run at all: the Release workflow (`gh workflow run release.yml --ref main`, tick "full" via `-f full=true`), so the new matrix, lite bundles on Windows and the Brotli-11 build time on runners are unverified.
+- The editor tab `core/index.mjs.new` (if still open) is a deleted stale draft; `core/index.mjs` is the real file.
+
 ## State at end of session
 Locally green: 329 backend tests (99.3% line coverage), 62 web tests, a real all-tools single executable built and smoke-tested (79 MB zip), a lite `pdf-pages` bundle built and smoke-tested from another folder (0.4 MB). **Not yet run on GitHub**: the rewritten `ci.yml` / `release.yml`, the Docker build (no Docker daemon locally) and Windows/Linux packaging of the new tools. Check CI first thing; expect small fixes (the previous refactor needed three CI iterations).
 
