@@ -1,0 +1,31 @@
+{
+  "name": "latex-to-pdf",
+  "version": "0.1.0",
+  "description": "Local, secure LaTeX to PDF tool: CLI + importable API for agents, plus a small React UI.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "latex2pdf": "./bin/latex2pdf.mjs"
+  },
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "scripts": {
+    "setup": "node scripts/install-engine.mjs && npm --prefix web install && npm run build:web",
+    "install:engine": "node scripts/install-engine.mjs",
+    "warmup": "node scripts/warmup.mjs",
+    "build:web": "npm --prefix web run build",
+    "start": "node bin/latex2pdf-ui.mjs",
+    "test": "npm run test:unit && npm run test:integration && npm run test:web",
+    "test:unit": "node --test --test-reporter=spec \"test/unit/**/*.test.mjs\"",
+    "test:integration": "node --test --test-reporter=spec --test-concurrency=1 \"test/integration/**/*.test.mjs\"",
+    "test:web": "npm --prefix web test",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-lines=80 --test-concurrency=1 \"test/**/*.test.mjs\"",
+    "package": "node scripts/build-portable.mjs"
+  }
+}
