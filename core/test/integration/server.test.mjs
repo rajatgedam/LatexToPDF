@@ -11,6 +11,7 @@ import { SAMPLE as REPORT } from "../../../tools/latex-to-docx/sample.mjs";
 const tm = await createToolMaster({ env: { ...process.env, TOOLMASTER_TIMEOUT_MS: "120000", TOOLMASTER_MAX_CONCURRENCY: "2", TOOLMASTER_RATE_LIMIT_PER_MIN: "1000" } });
 const status = await tm.runner.status({ fresh: true });
 const skipFor = (id) => (status[id]?.ready ? false : `${id} engine not installed (node bin/toolmaster.mjs install)`);
+const FIXTURE = await readFile(new URL("../../../test/fixtures/sample.pdf", import.meta.url));
 
 let srv;
 before(async () => {
@@ -30,8 +31,6 @@ test("the catalog lists every tool with readiness; text tools carry a sample inp
     if (t.input.kind === "text") assert.ok(t.sample.length > 50, t.id);
   }
 });
-
-const FIXTURE = await readFile(new URL("../../../test/fixtures/sample.pdf", import.meta.url));
 
 test("POST a PDF to pdf-pages with options in the query string returns the rearranged PDF", async () => {
   const res = await fetch(`${srv.url}/api/tools/pdf-pages/run?pages=3,1&rotate=90`, { method: "POST", headers: { "content-type": "application/octet-stream" }, body: FIXTURE });
