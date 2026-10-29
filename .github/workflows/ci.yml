@@ -63,18 +63,18 @@ jobs:
       - name: Catalog, conversions, non-root and Host checks
         run: |
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5757/api/health && break; sleep 1; done
-          test "$(curl -sf http://127.0.0.1:5757/api/tools | grep -o '"id":"' | wc -l)" = "${{ matrix.expect }}"
+          test "$(curl -sf http://127.0.0.1:5757/api/tools | jq '.tools | length')" = "${{ matrix.expect }}"
           run_tool() { # id extension
             node bin/toolmaster.mjs sample "$1" > "$RUNNER_TEMP/in-$1.txt"
             code=$(curl -s -o "$RUNNER_TEMP/out-$1.$2" -w '%{http_code}' -X POST -H 'content-type: text/plain' \
               --data-binary @"$RUNNER_TEMP/in-$1.txt" "http://127.0.0.1:5757/api/tools/$1/run")
             if [ "$code" != "200" ]; then echo "$1 returned HTTP $code"; cat "$RUNNER_TEMP/out-$1.$2"; exit 1; fi
           }
-          if curl -sf http://127.0.0.1:5757/api/tools | grep -q '"id":"latex-to-docx"'; then
+          if curl -sf http://127.0.0.1:5757/api/tools | jq -e '.tools[] | select(.id == "latex-to-docx")' > /dev/null; then
             run_tool latex-to-docx docx
             head -c 2 "$RUNNER_TEMP/out-latex-to-docx.docx" | grep -q PK
           fi
-          if curl -sf http://127.0.0.1:5757/api/tools | grep -q '"id":"latex-to-pdf"'; then
+          if curl -sf http://127.0.0.1:5757/api/tools | jq -e '.tools[] | select(.id == "latex-to-pdf")' > /dev/null; then
             run_tool latex-to-pdf pdf
             head -c 5 "$RUNNER_TEMP/out-latex-to-pdf.pdf" | grep -q '%PDF-'
           fi
