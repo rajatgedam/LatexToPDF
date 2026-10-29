@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "toolmaster": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/bin/toolmaster.mjs", "mcp"]
+    }
+  }
+}

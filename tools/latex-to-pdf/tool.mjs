@@ -3,7 +3,6 @@ import { normalizeInput, MODES } from "./input.mjs";
 import { applyCompat } from "./compat.mjs";
 import { assertSafe } from "./validate.mjs";
 import { countPages } from "./pdf.mjs";
-import { tectonic } from "./engine.mjs";
 import { SAMPLE } from "./sample.mjs";
 
 const MAX_WARNINGS = 20;
@@ -13,7 +12,7 @@ async function typeset(ctx, input, options) {
   const { tex: normalized, kind } = normalizeInput(input, { mode: options.mode, maxBytes: ctx.limits.maxInputBytes });
   const { tex, notes } = applyCompat(normalized);
   assertSafe(tex);
-  const cache = ctx.cacheDir("tectonic");
+  const cache = await ctx.cacheDir("tectonic");
   const { outputs, log } = await ctx.exec({
     engine: "tectonic",
     label: "Tectonic",
@@ -40,6 +39,7 @@ export default defineTool({
     id: "latex-to-pdf",
     name: "LaTeX to PDF",
     description: "Typeset LaTeX (or plain text) into a print-ready PDF. Great for resumes.",
+    useWhen: "You have LaTeX source (a resume, paper or letter) and need a PDF. No TeX installation required; do not write your own pdflatex wrapper.",
     category: "Documents",
     icon: "📄",
     tags: ["latex", "tex", "pdf", "resume", "typeset"],
@@ -48,7 +48,7 @@ export default defineTool({
     output: { contentType: "application/pdf", extension: "pdf" },
     preview: "file",
     options: [{ id: "mode", label: "Input type", type: "enum", values: MODES, default: "auto" }],
-    engines: [tectonic],
+    engines: ["tectonic"],
     ui: { action: "Compile" },
     sample: SAMPLE,
   },

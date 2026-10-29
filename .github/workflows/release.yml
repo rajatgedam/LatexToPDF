@@ -1,27 +1,49 @@
 name: Release
 
-# Push a tag like v0.2.0 to publish. "Run workflow" (manual) only builds and tests the artifacts, it never publishes.
+# Push a tag like v0.3.0 to publish every bundle. "Run workflow" (manual) only builds and smoke-tests; it never publishes.
+# A manual run builds the all-in-one bundle on each OS; tick "full" to build every bundle like a release would.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      full:
+        description: "Build every bundle (slower), not just the all-in-one"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  plan:
+    name: Plan bundles
+    runs-on: ubuntu-latest
+    outputs:
+      bundles: ${{ steps.plan.outputs.bundles }}
+      images: ${{ steps.plan.outputs.images }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - id: plan
+        env:
+          FULL: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.full }}
+        run: |
+          flag=""; if [ "$FULL" = "true" ]; then flag="--full"; fi
+          node scripts/plan-release.mjs $flag --github-output
+          node scripts/plan-release.mjs $flag | head -c 3000
+
   build:
     name: Build ${{ matrix.name }}
+    needs: plan
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { os: macos-latest, name: darwin-arm64 }
-          - { os: macos-15-intel, name: darwin-x64 }
-          - { os: ubuntu-latest, name: linux-x64 }
-          - { os: ubuntu-24.04-arm, name: linux-arm64 }
-          - { os: windows-latest, name: win32-x64 }
+      matrix: ${{ fromJSON(needs.plan.outputs.bundles) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -31,36 +53,17 @@ jobs:
           node-version: 24
       - run: npm ci
       - run: npm --prefix web ci
-      - run: node bin/toolmaster.mjs install
+      - run: node bin/toolmaster.mjs install ${{ matrix.tools }}
       - run: npm run build:web
-      - run: node bin/toolmaster.mjs warmup
-      - name: Package every bundle (all tools, and each tool on its own)
+      - run: node bin/toolmaster.mjs warmup ${{ matrix.tools }}
+      - name: Package (${{ matrix.runtime }} runtime, bundle ${{ matrix.bundle }})
+        shell: bash
+        run: npm run package -- --tools ${{ matrix.bundle }} --runtime ${{ matrix.runtime }} --zip
+      - name: Smoke test the packaged bundle (offline)
         shell: bash
         run: |
-          for bundle in all latex-to-pdf latex-to-docx; do
-            npm run package -- --tools "$bundle" --zip
-          done
-      - name: Smoke test every packaged bundle (offline)
-        shell: bash
-        env:
-          TOOLMASTER_OFFLINE: "1"
-        run: |
-          for d in dist/ToolMaster-*/; do
-            exe="$d$(ls "$d" | grep -E '^toolmaster(\.exe)?$')"
-            echo "== $d"
-            "$exe" list --json > "$RUNNER_TEMP/list.json"
-            for pair in latex-to-pdf:pdf latex-to-docx:docx; do
-              id="${pair%%:*}"; ext="${pair##*:}"
-              if grep -q "\"id\":\"$id\"" "$RUNNER_TEMP/list.json"; then
-                "$exe" sample "$id" > "$RUNNER_TEMP/in.txt"
-                "$exe" "$id" -i "$RUNNER_TEMP/in.txt" -o "$RUNNER_TEMP/smoke-$id.$ext" --json
-                test -s "$RUNNER_TEMP/smoke-$id.$ext"
-              else
-                echo "($id is not part of this bundle)"
-                case "$d" in *-all-*) echo "all bundle must include $id"; exit 1;; esac
-              fi
-            done
-          done
+          expect=""; if [ "${{ matrix.bundle }}" = "all" ]; then expect="--expect all"; fi
+          for d in dist/ToolMaster-*/; do node scripts/smoke-bundle.mjs "$d" $expect; done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ToolMaster-${{ matrix.name }}
@@ -93,19 +96,17 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" artifacts/* --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
 
   docker:
-    name: Docker ${{ matrix.image }} ${{ matrix.arch }}
+    name: Docker ${{ matrix.img.image }} ${{ matrix.arch.arch }}
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ${{ matrix.os }}
+    needs: plan
+    runs-on: ${{ matrix.arch.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
-        image: [toolmaster, toolmaster-latex-to-pdf, toolmaster-latex-to-docx]
-        include:
+        arch:
           - { os: ubuntu-latest, arch: amd64 }
           - { os: ubuntu-24.04-arm, arch: arm64 }
-          - { image: toolmaster, tools: all }
-          - { image: toolmaster-latex-to-pdf, tools: latex-to-pdf }
-          - { image: toolmaster-latex-to-docx, tools: latex-to-docx }
+        img: ${{ fromJSON(needs.plan.outputs.images) }}
     permissions:
       contents: read
       packages: write
@@ -118,18 +119,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           owner="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"
-          tag="${{ matrix.image }}:${GITHUB_REF_NAME}-${{ matrix.arch }}"
+          tag="${{ matrix.img.image }}:${GITHUB_REF_NAME}-${{ matrix.arch.arch }}"
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker build --build-arg TOOLS=${{ matrix.tools }} -t "$owner/$tag" .
+          docker build --build-arg TOOLS=${{ matrix.img.tools }} -t "$owner/$tag" .
           docker push "$owner/$tag"
 
   docker-manifest:
-    name: Docker manifest ${{ matrix.image }}
-    needs: docker
+    name: Docker manifest ${{ matrix.img.image }}
+    needs: [plan, docker]
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [toolmaster, toolmaster-latex-to-pdf, toolmaster-latex-to-docx]
+        img: ${{ fromJSON(needs.plan.outputs.images) }}
     permissions:
       contents: read
       packages: write
@@ -138,7 +139,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          img="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.image }}"
+          img="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.img.image }}"
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker buildx imagetools create -t "$img:${GITHUB_REF_NAME}" -t "$img:latest" \
             "$img:${GITHUB_REF_NAME}-amd64" "$img:${GITHUB_REF_NAME}-arm64"

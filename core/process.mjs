@@ -82,17 +82,17 @@ async function sanitizer(workdir) {
  * @returns {Promise<{ outputs: Record<string, Buffer>, log: string, code: number }>}
  */
 export async function runProcess({
-  command, args, files = {}, env = {}, outputs = [], config, timeoutMs = config.timeoutMs, signal,
-  rw = [], network = true, maxOutputBytes = config.maxOutputBytes, errorPattern = DEFAULT_ERROR, label = "The engine", tmpRoot = os.tmpdir(),
+  command, args, files = {}, env = {}, outputs = [], optional = [], config, timeoutMs = config.timeoutMs, signal,
+  rw = [], ro = [], network = true, maxOutputBytes = config.maxOutputBytes, errorPattern = DEFAULT_ERROR, label = "The engine", tmpRoot = os.tmpdir(),
 }) {
-  for (const name of [...Object.keys(files), ...outputs]) if (!SAFE_NAME.test(name)) throw new ToolMasterError("INPUT_INVALID", `Unsafe file name "${name}"`);
+  for (const name of [...Object.keys(files), ...outputs, ...optional]) if (!SAFE_NAME.test(name)) throw new ToolMasterError("INPUT_INVALID", `Unsafe file name "${name}"`);
   await Promise.all(rw.map((dir) => mkdir(dir, { recursive: true })));
   const workdir = await mkdtemp(path.join(tmpRoot, "tm-work-"));
   try {
     for (const [name, content] of Object.entries(files)) await writeFile(path.join(workdir, name), content, { flag: "wx", mode: 0o600 });
     const argv = typeof args === "function" ? args(workdir) : args;
     const scrub = await sanitizer(workdir);
-    const run = await wrapWithSandbox({ command, args: argv, workdir, rw, network, config });
+    const run = await wrapWithSandbox({ command, args: argv, workdir, rw, ro, network, config });
     const { code, log: rawLog, reason } = await execute(run.cmd, run.args, { cwd: workdir, env: childEnv(workdir, env), timeoutMs, signal });
     const log = scrub(rawLog);
 
@@ -105,9 +105,12 @@ export async function runProcess({
     if (code !== 0) throw fail();
 
     const found = {};
-    for (const name of outputs) {
+    for (const name of [...outputs, ...optional]) {
       const info = await stat(path.join(workdir, name)).catch(() => null);
-      if (!info?.isFile()) throw fail();
+      if (!info?.isFile()) {
+        if (optional.includes(name)) continue;
+        throw fail();
+      }
       if (info.size > maxOutputBytes) throw new ToolMasterError("OUTPUT_TOO_LARGE", `Output exceeds ${maxOutputBytes} bytes`, { log: tail(log) });
       found[name] = await readFile(path.join(workdir, name));
     }

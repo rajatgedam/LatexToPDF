@@ -60,6 +60,23 @@ test("engine path overrides are collected per engine id", () => {
   assert.deepEqual({ ...c.engineOverrides }, { pandoc: "/opt/pandoc", "my-tool": "/x/y" });
 });
 
+test("engines can live in a shared folder while packs stay next to the program", () => {
+  const c = loadConfig({ TOOLMASTER_VENDOR_DIR: "/shared/engines" }, { projectRoot: "/tmp/p" });
+  assert.equal(c.vendorDir, "/shared/engines");
+  assert.equal(c.cacheRoot, "/shared/engines/cache");
+  assert.equal(c.packDir, "/tmp/p/vendor");
+  assert.equal(loadConfig({}, { projectRoot: "/tmp/p" }).packDir, "/tmp/p/vendor");
+});
+
+test("workers start from the source tree by default and from the caller's description when given", () => {
+  const dflt = loadConfig({});
+  assert.equal(dflt.self.command, process.execPath);
+  assert.match(dflt.self.args[0], /core[\\/]worker-entry\.mjs$/);
+  assert.equal(dflt.self.ro.length, 1);
+  const custom = loadConfig({}, { self: { command: "/x/toolmaster", args: ["__worker"], ro: [] } });
+  assert.deepEqual({ ...custom.self }, { command: "/x/toolmaster", args: ["__worker"], ro: [] });
+});
+
 test("config object is frozen", () => {
   const c = loadConfig({});
   assert.throws(() => {

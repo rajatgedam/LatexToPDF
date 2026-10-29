@@ -29,7 +29,7 @@ test("manifest describes a text-in, PDF-out tool with a PDF preview", () => {
   assert.equal(m.input.kind, "text");
   assert.equal(m.output.extension, "pdf");
   assert.equal(m.preview, "file");
-  assert.deepEqual(m.engines.map((e) => e.id), ["tectonic"]);
+  assert.deepEqual(m.engines, ["tectonic"]);
   assert.ok(m.sample.includes("\\documentclass"));
   assert.equal(m.sample, SAMPLE);
 });

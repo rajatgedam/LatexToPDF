@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sandboxProfile, buildSandboxArgv, wrapWithSandbox } from "../../sandbox.mjs";
+import { sandboxProfile, buildSandboxArgv, wrapWithSandbox, ancestorsOf } from "../../sandbox.mjs";
 import { loadConfig } from "../../config.mjs";
 
 test("profile denies reads of user data and writes outside the allowed dirs", () => {
@@ -26,6 +26,16 @@ test("argv passes paths as -D params, never interpolated into the profile", () =
   assert.ok(args.includes(`WORK=${evil}`));
   assert.ok(args.includes("RW0=/c"));
   assert.deepEqual(args.slice(-3), ["/e/tool", "-X", "go"]);
+});
+
+test("read-only folders are readable, and their parents are visible to stat but not readable", () => {
+  assert.deepEqual(ancestorsOf(["/Users/me/src/app", "/opt/node/bin"]), ["/Users", "/Users/me", "/Users/me/src", "/opt", "/opt/node"]);
+  const p = sandboxProfile({ roCount: 2, ancCount: 1 });
+  assert.match(p, /\(allow file-read\* \(subpath \(param "WORK"\)\) \(subpath \(param "RO0"\)\) \(subpath \(param "RO1"\)\)/);
+  assert.match(p, /\(allow file-read-metadata \(literal \(param "ANC0"\)\)\)/);
+  assert.doesNotMatch(sandboxProfile({}), /file-read-metadata/);
+  const { args } = buildSandboxArgv({ command: "/n/node", args: [], work: "/w", ro: ["/Users/me/src"], engineDir: "/n" });
+  assert.ok(args.includes("RO0=/Users/me/src") && args.includes("ANC0=/Users") && args.includes("ANC1=/Users/me"));
 });
 
 test("wrapWithSandbox is a no-op when off, on non-macOS, and fatal when required but missing", async () => {

@@ -30,7 +30,7 @@ test("manifest: text in, DOCX out, HTML preview, two options, pandoc engine", ()
   assert.match(m.output.contentType, /wordprocessingml\.document$/);
   assert.equal(m.preview, "html");
   assert.deepEqual(m.options.map((o) => o.id), ["mode", "toc"]);
-  assert.deepEqual(m.engines.map((e) => e.id), ["pandoc"]);
+  assert.deepEqual(m.engines, ["pandoc"]);
   assert.ok(m.sample.includes("\\begin{document}"));
 });
 

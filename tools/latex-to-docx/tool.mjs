@@ -1,5 +1,4 @@
 import { defineTool, ToolMasterError } from "../../core/sdk.mjs";
-import { pandoc } from "./engine.mjs";
 import { SAMPLE } from "./sample.mjs";
 import { lockDown } from "./preview.mjs";
 
@@ -38,6 +37,7 @@ export default defineTool({
     id: "latex-to-docx",
     name: "LaTeX to DOCX",
     description: "Turn LaTeX into an editable Word document. Headings, lists, tables, links and math carry over.",
+    useWhen: "You have LaTeX source and someone needs an editable Word file. Structure carries over; custom layout macros do not.",
     category: "Documents",
     icon: "📝",
     tags: ["latex", "tex", "docx", "word", "convert"],
@@ -49,7 +49,7 @@ export default defineTool({
       { id: "mode", label: "Input type", type: "enum", values: ["auto", "latex", "text"], default: "auto" },
       { id: "toc", label: "Add a table of contents", type: "boolean", default: false },
     ],
-    engines: [pandoc],
+    engines: ["pandoc"],
     ui: { action: "Convert" },
     sample: SAMPLE,
   },

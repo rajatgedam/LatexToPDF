@@ -391,6 +391,31 @@ kbd {
   background: #fff;
   animation: fade-in 0.4s ease-out;
 }
+.stage__text {
+  flex: 1;
+  margin: 0;
+  padding: 16px 18px;
+  overflow: auto;
+  color: var(--ink);
+  background: var(--paper);
+  font: 13.5px/1.55 var(--font-code);
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: fade-in 0.4s ease-out;
+}
+.options__text {
+  width: min(260px, 40vw);
+  min-height: 40px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  font: 600 14px var(--font-code);
+}
+.options__text::placeholder {
+  color: var(--ink-soft);
+}
 .stage__busy {
   position: absolute;
   right: 16px;

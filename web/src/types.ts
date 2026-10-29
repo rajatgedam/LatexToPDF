@@ -1,8 +1,10 @@
 export interface ToolOption {
   id: string;
   label: string;
-  type: "enum" | "boolean";
+  type: "enum" | "boolean" | "string";
   values?: string[];
+  maxLength?: number;
+  help?: string;
   default: string | boolean;
 }
 
@@ -16,12 +18,13 @@ export interface ToolInfo {
   id: string;
   name: string;
   description: string;
+  useWhen?: string;
   category: string;
   icon: string;
   tags?: string[];
   input: { kind: "text" | "binary"; accept: string[]; maxBytes?: number };
   output: { contentType: string; extension: string };
-  preview: "file" | "html" | "none";
+  preview: "file" | "html" | "text" | "none";
   options?: ToolOption[];
   ui: { action: string };
   sample?: string;

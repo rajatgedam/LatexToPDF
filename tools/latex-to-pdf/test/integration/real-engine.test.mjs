@@ -73,7 +73,7 @@ test("two concurrent compiles both succeed", opts, async () => {
 // Defense in depth: bypass the tool's policy scan and hit the engine directly.
 test("engine --untrusted blocks shell escape even without the policy scan", opts, async () => {
   const marker = path.join(dir, "pwned");
-  const spec = tool.manifest.engines[0];
+  const spec = tm.engines.get("tectonic");
   const command = await resolveEngine(tm.config, spec);
   const tex = `\\documentclass{article}\\begin{document}\\immediate\\write18{touch ${marker}}x\\end{document}`;
   await runProcess({ command, args: (d) => ["-X", "compile", "--untrusted", "--outdir", d, "main.tex"], files: { "main.tex": tex }, outputs: ["main.pdf"], config: tm.config, env: { TECTONIC_CACHE_DIR: path.join(tm.config.cacheRoot, "tectonic") }, rw: [path.join(tm.config.cacheRoot, "tectonic")] }).catch(() => {});

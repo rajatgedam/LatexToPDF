@@ -4,6 +4,7 @@ import { ToolMasterError } from "../errors.mjs";
 import { installEngine } from "../installer.mjs";
 import { launchUi } from "../server/launch.mjs";
 import { runMenu } from "./menu.mjs";
+import { runMcp } from "../mcp.mjs";
 
 const EXIT = {
   INPUT_EMPTY: 2, INPUT_TOO_LARGE: 2, INPUT_INVALID: 2, OUTPUT_PATH_INVALID: 2, CONFIG_INVALID: 2, TOOL_NOT_FOUND: 2,
@@ -11,19 +12,24 @@ const EXIT = {
 };
 export const exitCodeFor = (code) => EXIT[code] ?? 1;
 
+const isTextType = (contentType) => /^text\/|json|xml/.test(contentType);
+
 const HELP = `ToolMaster: small local tools, one menu. Nothing leaves your machine.
 
 Usage:
   toolmaster                         interactive menu (when run in a terminal)
   toolmaster ui [--no-open]          open the web app
   toolmaster list [--json]           show the tools in this build and whether they are ready
-  toolmaster run <tool> -i <in|-> -o <out> [-O key=value ...] [--mkdir] [--timeout ms] [--json]
+  toolmaster run <tool> -i <in|-> -o <out|-> [-O key=value ...] [--mkdir] [--timeout ms] [--json]
   toolmaster <tool> ...              same as run <tool> ...
-  toolmaster help <tool>             options and examples for one tool
+  toolmaster help <tool> [--json]    options and examples for one tool
   toolmaster sample <tool>           print a known-good example input
+  toolmaster mcp                     serve every tool to AI agents over MCP (stdio)
   toolmaster install [tool ...]      download the pinned engines (SHA-256 verified)
   toolmaster doctor [--json]         check that every tool's engine works
   toolmaster warmup [tool ...]       pre-download packages so tools also work offline
+
+-o - prints a text result (for example Markdown) to stdout instead of writing a file.
 
 Exit codes:
   0 ok | 1 unexpected | 2 bad usage/input/output path/unknown tool | 3 policy violation
@@ -77,19 +83,24 @@ function parseRunArgs(args) {
 }
 
 function toolHelp(m) {
-  const opts = (m.options ?? []).map((o) => `  -O ${o.id}=${o.type === "enum" ? o.values.join("|") : "true|false"}   ${o.label} (default ${o.default})`);
+  const hint = (o) => (o.type === "enum" ? o.values.join("|") : o.type === "boolean" ? "true|false" : "text");
+  const opts = (m.options ?? []).map((o) => `  -O ${o.id}=${hint(o)}   ${o.label}${o.help ? `. ${o.help}` : ""} (default ${JSON.stringify(o.default)})`);
   return [
     `${m.name} (${m.id}): ${m.description}`,
+    ...(m.useWhen ? [`  use when: ${m.useWhen}`] : []),
     `  input : ${m.input.kind === "text" ? "text" : "file"} (${m.input.accept.join(", ")})`,
     `  output: .${m.output.extension} (${m.output.contentType})`,
     ...(opts.length ? ["Options:", ...opts] : []),
     "Example:",
-    `  toolmaster ${m.id} -i input${m.input.accept[0]} -o output.${m.output.extension} --json`,
+    `  toolmaster ${m.id} -i input${m.input.accept[0]} -o ${isTextType(m.output.contentType) ? "-" : `output.${m.output.extension}`} --json`,
     "",
   ].join("\n");
 }
 
 const pickTools = (tm, names) => (names.length ? names.map((n) => tm.registry.get(n)) : tm.registry.list());
+
+/** Public, JSON-friendly view of a manifest: engine ids only, no inline sample. */
+const describe = (tm, { sample: _omit, engines: declared, ...m }) => ({ ...m, engines: tm.engines.forManifest({ engines: declared }).map((e) => e.id) });
 
 /**
  * Testable CLI entry. Returns an exit code, or `{ ui }` when a long-running web server was started.
@@ -97,7 +108,7 @@ const pickTools = (tm, names) => (names.length ? names.map((n) => tm.registry.ge
  */
 export async function runCli(argv, io = {}) {
   const {
-    env = process.env, stdin = process.stdin, stdout = process.stdout, stderr = process.stderr, projectRoot, tools,
+    env = process.env, stdin = process.stdin, stdout = process.stdout, stderr = process.stderr, projectRoot, tools, engines, self,
     deps = {}, interactive = Boolean(stdin.isTTY && stdout.isTTY),
   } = io;
   const d = { launchUi, installEngine, ...deps };
@@ -120,7 +131,7 @@ export async function runCli(argv, io = {}) {
       stdout.write(HELP);
       return 0;
     }
-    const tm = io.tm ?? (await createToolMaster({ env, projectRoot, tools }));
+    const tm = io.tm ?? (await createToolMaster({ env, projectRoot, tools, engines, self }));
 
     if (!first) {
       if (!interactive) {
@@ -131,13 +142,16 @@ export async function runCli(argv, io = {}) {
     }
 
     switch (first) {
-      case "help":
-        stdout.write(toolHelp(tm.registry.get(rest[0]).manifest));
+      case "help": {
+        const m = tm.registry.get(rest[0]).manifest;
+        if (json) emit({ ok: true, tool: describe(tm, m) });
+        else stdout.write(toolHelp(m));
         return 0;
+      }
 
       case "list": {
         const status = await tm.runner.status({ fresh: true });
-        const rows = tm.registry.list().map(({ manifest: { sample: _omit, ...m } }) => ({ ...m, status: status[m.id] }));
+        const rows = tm.registry.list().map(({ manifest: m }) => ({ ...describe(tm, m), status: status[m.id] }));
         emit({ ok: true, tools: rows }, rows.map((m) => `${m.id.padEnd(16)} ${m.name.padEnd(16)} ${m.status.ready ? "ready" : "engine missing"}   ${m.description}`).join("\n"));
         return 0;
       }
@@ -161,9 +175,9 @@ export async function runCli(argv, io = {}) {
 
       case "install": {
         const force = rest.includes("--force");
-        const specs = new Map(pickTools(tm, rest.filter((a) => !a.startsWith("--"))).flatMap((t) => (t.manifest.engines ?? []).map((e) => [e.id, e])));
-        for (const spec of specs.values()) await d.installEngine({ config: tm.config, spec, force, log: (m) => stdout.write(`${m}\n`) });
-        if (specs.size === 0) stdout.write("Nothing to install.\n");
+        const specs = tm.engines.forManifests(pickTools(tm, rest.filter((a) => !a.startsWith("--"))).map((t) => t.manifest));
+        for (const spec of specs) await d.installEngine({ config: tm.config, spec, force, log: (m) => stdout.write(`${m}\n`) });
+        if (specs.length === 0) stdout.write("Nothing to install.\n");
         return 0;
       }
 
@@ -180,6 +194,9 @@ export async function runCli(argv, io = {}) {
         return { ui: await d.launchUi({ tm, open: !rest.includes("--no-open") }) };
       }
 
+      case "mcp":
+        return await runMcp({ tm, stdin, stdout, stderr, env });
+
       default: {
         const toolId = first === "run" ? rest[0] : first;
         const args = first === "run" ? rest.slice(1) : rest;
@@ -194,10 +211,17 @@ export async function runCli(argv, io = {}) {
         }
         if (!a.input || !a.output) return usage("--input and --output are required");
         const m = tm.registry.get(toolId).manifest;
-        const common = { tool: toolId, output: a.output, options: parseOptions(a.option), mkdir: a.mkdir, timeoutMs: a.timeout ? Number(a.timeout) : undefined };
-        const r = a.input === "-"
-          ? await tm.runner.runToFile({ ...common, source: await readStdin(stdin, tm.config.maxInputBytes, m.input.kind) })
-          : await tm.runner.runToFile({ ...common, input: a.input });
+        const common = { tool: toolId, options: parseOptions(a.option), timeoutMs: a.timeout ? Number(a.timeout) : undefined };
+        const src = a.input === "-" ? { source: await readStdin(stdin, tm.config.maxInputBytes, m.input.kind) } : { input: a.input };
+        if (a.output === "-") {
+          if (!isTextType(m.output.contentType)) throw new ToolMasterError("OUTPUT_PATH_INVALID", `-o - prints text only; ${m.id} produces ${m.output.contentType}, so give a file path`);
+          const r = await tm.runner.runFromSource({ ...common, ...src });
+          const text = r.data.toString("utf8");
+          if (json) stdout.write(`${JSON.stringify({ ok: true, tool: toolId, content: text, bytes: r.data.length, meta: r.meta, durationMs: r.durationMs, warnings: r.warnings })}\n`);
+          else stdout.write(text.endsWith("\n") ? text : `${text}\n`);
+          return 0;
+        }
+        const r = await tm.runner.runToFile({ ...common, ...src, output: a.output, mkdir: a.mkdir });
         const pages = r.meta?.pages ? `${r.meta.pages} page(s), ` : "";
         emit({ ok: true, tool: toolId, outputPath: r.outputPath, bytes: r.bytes, meta: r.meta, durationMs: r.durationMs, warnings: r.warnings }, `OK ${r.outputPath} (${pages}${r.bytes} bytes, ${r.durationMs} ms)`);
         return 0;

@@ -15,3 +15,5 @@ export const pandoc = {
     "win32-x64": { url: `${BASE}/pandoc-3.13-windows-x86_64.zip`, sha256: "23e1f2e978a3df80db8bf65c9c59534f41a23140480cfb4f783a882ab7dc6a4e" },
   },
 };
+
+export default pandoc;

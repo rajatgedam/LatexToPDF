@@ -6,31 +6,52 @@ interface Props {
   onChange: (values: OptionValues) => void;
 }
 
-/** Renders a tool's declared options (enum -> select, boolean -> checkbox) with no tool-specific code. */
+/** Renders a tool's declared options (enum -> select, boolean -> checkbox, string -> text box) with no tool-specific code. */
 export function OptionsBar({ options, values, onChange }: Props) {
   if (options.length === 0) return null;
   const set = (id: string, v: string | boolean) => onChange({ ...values, [id]: v });
   return (
     <div className="options" role="group" aria-label="Options">
-      {options.map((o) =>
-        o.type === "enum" ? (
-          <label key={o.id} className="options__item">
-            <span>{o.label}</span>
-            <select value={String(values[o.id])} onChange={(e) => set(o.id, e.target.value)}>
-              {o.values?.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <label key={o.id} className="options__item options__item--check">
+      {options.map((o) => {
+        if (o.type === "enum") {
+          return (
+            <label key={o.id} className="options__item">
+              <span>{o.label}</span>
+              <select value={String(values[o.id])} onChange={(e) => set(o.id, e.target.value)} title={o.help}>
+                {o.values?.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
+        }
+        if (o.type === "string") {
+          return (
+            <label key={o.id} className="options__item">
+              <span>{o.label}</span>
+              <input
+                type="text"
+                className="options__text"
+                value={String(values[o.id] ?? "")}
+                maxLength={o.maxLength ?? 200}
+                placeholder={String(o.default)}
+                title={o.help}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(e) => set(o.id, e.target.value)}
+              />
+            </label>
+          );
+        }
+        return (
+          <label key={o.id} className="options__item options__item--check" title={o.help}>
             <input type="checkbox" checked={Boolean(values[o.id])} onChange={(e) => set(o.id, e.target.checked)} />
             <span>{o.label}</span>
           </label>
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

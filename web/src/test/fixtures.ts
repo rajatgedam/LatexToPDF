@@ -52,3 +52,24 @@ export const binaryTool = (overrides: Partial<ToolInfo> = {}): ToolInfo =>
   });
 
 export const missingEngine = (tool: ToolInfo): ToolInfo => ({ ...tool, status: { ready: false, engines: [{ id: "e", found: false }] } });
+
+/** A file in, readable text out (like doc-to-markdown), with a free-text option (like pdf-pages). */
+export const readerTool = (overrides: Partial<ToolInfo> = {}): ToolInfo =>
+  binaryTool({
+    id: "reader-tool",
+    name: "Reader Tool",
+    description: "Reads documents",
+    useWhen: "You must read a document",
+    category: "AI Helpers",
+    icon: "R",
+    tags: ["read"],
+    input: { kind: "binary", accept: [".pdf", ".docx"] },
+    output: { contentType: "text/markdown", extension: "md" },
+    preview: "text",
+    options: [
+      { id: "pages", label: "Pages", type: "string", default: "all", maxLength: 40, help: "like 1-3" },
+      { id: "markers", label: "Mark pages", type: "boolean", default: true },
+    ],
+    ui: { action: "Read it" },
+    ...overrides,
+  });

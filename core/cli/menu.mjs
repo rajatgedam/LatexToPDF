@@ -47,7 +47,7 @@ export async function runMenu({ tm, stdin, stdout, deps }) {
       if (choice === "1") return { ui: await deps.launchUi({ tm, open: true }) };
 
       if (choice === "i") {
-        for (const spec of new Map(tools.flatMap((t) => (t.manifest.engines ?? []).map((e) => [e.id, e]))).values()) {
+        for (const spec of tm.engines.forManifests(tools.map((t) => t.manifest))) {
           await deps.installEngine({ config: tm.config, spec, log: say }).catch((e) => say(`  could not install ${spec.id}: ${e.message}`));
         }
         continue;
@@ -66,8 +66,8 @@ export async function runMenu({ tm, stdin, stdout, deps }) {
       const output = (await reader.ask(`Output file [${suggested}]: `)) || suggested;
       const options = {};
       for (const o of m.options ?? []) {
-        const hint = o.type === "enum" ? o.values.join("/") : "true/false";
-        const answer = await reader.ask(`${o.label} [${o.default}] (${hint}): `);
+        const hint = o.type === "enum" ? o.values.join("/") : o.type === "boolean" ? "true/false" : "text";
+        const answer = await reader.ask(`${o.label} [${o.default}] (${hint}${o.help ? `; ${o.help}` : ""}): `);
         if (answer) options[o.id] = answer;
       }
       try {

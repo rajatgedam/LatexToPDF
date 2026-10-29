@@ -27,6 +27,11 @@ Dark variant (`prefers-color-scheme: dark`): `--paper #1F1D33`, `--card #2A2845`
 ## Typography
 System stacks only (no web fonts, CSP forbids CDNs): UI `ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif`; code `ui-monospace, "SF Mono", Menlo, monospace`. Title 28/800, body 15/500, code 14/1.55.
 
+## Components added in v0.3.0
+- **Free-text option** (`.options__text`): 2 px ink outline, 12 px radius, code font, the default shown as the placeholder, the option's `help` as the tooltip. Same 40 px height as selects.
+- **Text result** (`.stage__text`): the paper colour, code font 13.5/1.55, soft wrap, scrolls inside the stage; a ghost **Copy** button appears in the result toolbar and flips to "Copied!" for 1.5 s. Long results show the first 200,000 characters and say so.
+- **Categories** (menu section headings) come from manifests: Documents, PDF, AI Helpers. A new category needs no design work; the card icon is the tool's emoji on a sun-coloured tile.
+
 ## Shape and depth
 Radius 16 px panels, 999 px pills. 2 px ink outline plus a hard offset shadow (`4px 4px 0 var(--ink)`) for a sticker feel; buttons press down (shadow collapses) on `:active`.
 

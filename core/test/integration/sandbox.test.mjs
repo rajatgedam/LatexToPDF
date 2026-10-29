@@ -7,8 +7,8 @@ import { createToolMaster } from "../../index.mjs";
 import { resolveEngine } from "../../engines.mjs";
 import { runProcess } from "../../process.mjs";
 import { SANDBOX_EXEC } from "../../sandbox.mjs";
-import { tectonic } from "../../../tools/latex-to-pdf/engine.mjs";
-import { pandoc } from "../../../tools/latex-to-docx/engine.mjs";
+import { tectonic } from "../../../engines/tectonic.mjs";
+import { pandoc } from "../../../engines/pandoc.mjs";
 import { countPages } from "../../../tools/latex-to-pdf/pdf.mjs";
 
 const tm = await createToolMaster({ env: { ...process.env, TOOLMASTER_SANDBOX: "on", TOOLMASTER_TIMEOUT_MS: "120000" } });

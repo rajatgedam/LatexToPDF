@@ -3,7 +3,8 @@ import { ToolMasterError } from "./errors.mjs";
 const ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const EXT = /^\.[a-z0-9]{1,8}$/i;
 const SHA256 = /^[0-9a-f]{64}$/;
-const PREVIEWS = ["file", "html", "none"];
+const PREVIEWS = ["file", "html", "text", "none"];
+const STRING_MAX = 1000;
 
 /** Throws TOOL_INVALID with a precise message unless the engine spec is well formed. */
 export function validateEngineSpec(spec, owner = "engine") {
@@ -55,16 +56,25 @@ export function validateManifest(m) {
       if (!Array.isArray(o.values) || o.values.length === 0 || !o.values.includes(o.default)) bad(`option ${o.id}: enum needs values including its default`);
     } else if (o.type === "boolean") {
       if (typeof o.default !== "boolean") bad(`option ${o.id}: boolean default required`);
-    } else bad(`option ${o.id}: type must be enum or boolean`);
+    } else if (o.type === "string") {
+      const max = o.maxLength ?? 200;
+      if (!Number.isInteger(max) || max < 1 || max > STRING_MAX) bad(`option ${o.id}: maxLength must be 1-${STRING_MAX}`);
+      if (typeof o.default !== "string" || o.default.length > max) bad(`option ${o.id}: string default must be at most ${max} characters`);
+    } else bad(`option ${o.id}: type must be enum, boolean or string`);
   }
 
   const engineIds = new Set();
   for (const e of m.engines ?? []) {
-    validateEngineSpec(e, `engine of "${m.id}"`);
-    if (engineIds.has(e.id)) bad(`duplicate engine ${e.id}`);
-    engineIds.add(e.id);
+    // A string names an engine in the shared catalog (engines/<id>.mjs); an object is an inline spec.
+    if (typeof e === "string") {
+      if (!ID.test(e)) bad(`engine id "${e}" must be kebab-case`);
+    } else validateEngineSpec(e, `engine of "${m.id}"`);
+    const id = typeof e === "string" ? e : e.id;
+    if (engineIds.has(id)) bad(`duplicate engine ${id}`);
+    engineIds.add(id);
   }
   if (typeof m.ui?.action !== "string") bad("ui.action (button label) is required");
   if (m.sample !== undefined && typeof m.sample !== "string") bad("sample must be a string");
+  if (m.useWhen !== undefined && (typeof m.useWhen !== "string" || m.useWhen.length > 300)) bad("useWhen must be a string of at most 300 characters");
   return m;
 }

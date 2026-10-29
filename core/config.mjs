@@ -34,8 +34,17 @@ function engineOverrides(env) {
   return out;
 }
 
+/** Folder of the program's own source (engine specs live in `<root>/engines`); `projectRoot` is where vendor/ and web/ live. */
+export const SOURCE_ROOT = DEFAULT_ROOT;
+
+/**
+ * How to start another copy of this program as an isolated worker: `{ command, args, ro }`. `ro` lists extra folders the
+ * worker may read under the OS sandbox (the source tree when running from source; nothing for the single-file executable).
+ */
+export const defaultSelf = () => ({ command: process.execPath, args: [path.join(DEFAULT_ROOT, "core", "worker-entry.mjs")], ro: [DEFAULT_ROOT] });
+
 /** Build a validated, frozen config from environment variables (12-factor). */
-export function loadConfig(env = process.env, { projectRoot = DEFAULT_ROOT } = {}) {
+export function loadConfig(env = process.env, { projectRoot = DEFAULT_ROOT, self = defaultSelf() } = {}) {
   const host = env.TOOLMASTER_HOST || "127.0.0.1";
   const allowRemote = env.TOOLMASTER_ALLOW_REMOTE === "1";
   if (!LOOPBACK.has(host) && !allowRemote) {
@@ -43,10 +52,13 @@ export function loadConfig(env = process.env, { projectRoot = DEFAULT_ROOT } = {
   }
   const sandbox = env.TOOLMASTER_SANDBOX || "auto";
   if (!["auto", "on", "off"].includes(sandbox)) throw new ToolMasterError("CONFIG_INVALID", "TOOLMASTER_SANDBOX must be auto, on or off");
-  const vendorDir = path.join(projectRoot, "vendor");
+  const packDir = path.join(projectRoot, "vendor");
+  const vendorDir = env.TOOLMASTER_VENDOR_DIR ? path.resolve(env.TOOLMASTER_VENDOR_DIR) : packDir;
   return Object.freeze({
     projectRoot,
     vendorDir,
+    packDir,
+    self: Object.freeze(self),
     cacheRoot: env.TOOLMASTER_CACHE_DIR || path.join(vendorDir, "cache"),
     host,
     allowRemote,

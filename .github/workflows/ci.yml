@@ -36,6 +36,27 @@ jobs:
       - run: npm run test:web
       - name: Backend unit + integration tests with coverage gate (80% lines)
         run: npm run coverage
+      - name: Catalog is up to date
+        run: node scripts/gen-catalog.mjs --check
+
+  lite-bundle:
+    name: Lite bundle smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm --prefix web ci
+      - run: npm run build:web
+      - name: Build the engine-free tools as a lite bundle and run it
+        run: |
+          npm run package -- --tools pdf-pages --runtime node --zip
+          node scripts/smoke-bundle.mjs dist/ToolMaster-pdf-pages-lite
+          unzip -l dist/ToolMaster-pdf-pages-lite.zip | tail -1
 
   docker:
     name: Docker (${{ matrix.name }})
@@ -44,8 +65,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: all, tools: all, expect: 2 }
+          - { name: all, tools: all, expect: 4 }
           - { name: latex-to-docx only, tools: latex-to-docx, expect: 1 }
+          - { name: pdf-pages only, tools: pdf-pages, expect: 1 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -60,26 +82,12 @@ jobs:
           docker run -d --name tm -p 127.0.0.1:5757:5757 \
             --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
             toolmaster:ci
-      - name: Catalog, conversions, non-root and Host checks
+      - name: Every tool runs over HTTP; non-root; foreign Host refused
         run: |
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5757/api/health && break; sleep 1; done
-          test "$(curl -sf http://127.0.0.1:5757/api/tools | jq '.tools | length')" = "${{ matrix.expect }}"
-          run_tool() { # id extension
-            node bin/toolmaster.mjs sample "$1" > "$RUNNER_TEMP/in-$1.txt"
-            code=$(curl -s -o "$RUNNER_TEMP/out-$1.$2" -w '%{http_code}' -X POST -H 'content-type: text/plain' \
-              --data-binary @"$RUNNER_TEMP/in-$1.txt" "http://127.0.0.1:5757/api/tools/$1/run")
-            if [ "$code" != "200" ]; then echo "$1 returned HTTP $code"; cat "$RUNNER_TEMP/out-$1.$2"; exit 1; fi
-          }
-          if curl -sf http://127.0.0.1:5757/api/tools | jq -e '.tools[] | select(.id == "latex-to-docx")' > /dev/null; then
-            run_tool latex-to-docx docx
-            head -c 2 "$RUNNER_TEMP/out-latex-to-docx.docx" | grep -q PK
-          fi
-          if curl -sf http://127.0.0.1:5757/api/tools | jq -e '.tools[] | select(.id == "latex-to-pdf")' > /dev/null; then
-            run_tool latex-to-pdf pdf
-            head -c 5 "$RUNNER_TEMP/out-latex-to-pdf.pdf" | grep -q '%PDF-'
-          fi
+          node scripts/smoke-http.mjs http://127.0.0.1:5757 ${{ matrix.expect }}
           test "$(docker exec tm id -u)" != "0"
-          curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: evil.test' http://127.0.0.1:5757/api/health | grep -q 403
+          docker images toolmaster:ci --format 'image size: {{.Size}}'
       - name: Container logs on failure
         if: failure()
         run: docker logs tm

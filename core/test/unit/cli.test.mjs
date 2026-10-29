@@ -83,7 +83,7 @@ test("help, tool help and exit-code docs", async () => {
   const t = await cli(["help", "fake-tool"]);
   assert.equal(t.code, 0);
   assert.match(t.out, /-O mode=a\|b/);
-  assert.match(t.out, /toolmaster fake-tool -i input\.txt -o output\.out/);
+  assert.match(t.out, /toolmaster fake-tool -i input\.txt -o - --json/);
   assert.equal((await cli(["help", "ghost"])).code, 2);
   assert.equal((await cli(["help"])).code, 0);
 });

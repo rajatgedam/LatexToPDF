@@ -1,12 +1,12 @@
 {
   "name": "toolmaster",
-  "version": "0.2.0",
-  "description": "ToolMaster: a menu of small, secure, local tools (LaTeX to PDF, LaTeX to DOCX, ...) with a CLI, a Node API and a web app.",
+  "version": "0.3.0",
+  "description": "ToolMaster: a menu of small, secure, local tools (documents, PDFs, text extraction for AI agents) with a CLI, an MCP server, a Node API and a web app.",
   "type": "module",
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "bin": {
     "toolmaster": "./bin/toolmaster.mjs"
@@ -27,10 +27,15 @@
     "test:integration": "node --test --test-reporter=spec --test-concurrency=1 \"core/test/integration/**/*.test.mjs\" \"tools/*/test/integration/**/*.test.mjs\"",
     "test:web": "npm --prefix web test",
     "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"core/**/*.mjs\" --test-coverage-include=\"tools/**/*.mjs\" --test-coverage-exclude=\"**/test/**\" --test-coverage-lines=80 --test-concurrency=1 \"core/test/**/*.test.mjs\" \"tools/*/test/**/*.test.mjs\"",
-    "package": "node scripts/build-portable.mjs"
+    "package": "node scripts/build-portable.mjs",
+    "catalog": "node scripts/gen-catalog.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
     "postject": "^1.0.0-alpha.6"
+  },
+  "dependencies": {
+    "@cantoo/pdf-lib": "2.11.1",
+    "pdfjs-dist": "6.4.299"
   }
 }

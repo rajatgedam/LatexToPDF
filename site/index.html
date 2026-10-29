@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>ToolMaster: small tools that never leave your machine</title>
-  <meta name="description" content="Free, open-source menu of local tools: LaTeX to PDF, LaTeX to DOCX and more. Web app, CLI for AI agents, Docker, one-tool downloads.">
+  <meta name="description" content="Free, open-source menu of local tools: LaTeX to PDF and DOCX, PDF page editing, documents to Markdown for AI. Web app, MCP server, CLI, Docker, one-tool downloads.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='16' fill='%23FFC857' stroke='%232D2A4A' stroke-width='4'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -36,6 +36,16 @@
           <p class="note">Engine: Pandoc (GPL-2.0+, separate program)</p>
         </article>
         <article class="card">
+          <h3>PDF Pages</h3>
+          <p>Pick, reorder, reverse, repeat, delete or rotate pages. Splitting a PDF is just extracting a range.</p>
+          <p class="note">Built in, runs in a sandboxed worker</p>
+        </article>
+        <article class="card">
+          <h3>Doc to Markdown</h3>
+          <p>Read PDF, Word, PowerPoint, Excel, EPUB, HTML and CSV files as clean Markdown, made for AI to read.</p>
+          <p class="note">Pandoc and pdf.js, no cloud</p>
+        </article>
+        <article class="card">
           <h3>Your tool next</h3>
           <p>Each tool is a small self-contained module. Add a folder, it appears in the menu, the CLI and the API.</p>
           <p class="note">See the README: "Add your own tool"</p>
@@ -48,19 +58,20 @@
       <div class="grid">
         <article class="card">
           <h3>Download and double-click</h3>
-          <p>One zip per OS (macOS Apple Silicon and Intel, Linux x64 and arm64, Windows x64), as <code>all</code>, <code>latex-to-pdf</code> or <code>latex-to-docx</code>. No installs.</p>
+          <p>One zip per OS (macOS Apple Silicon and Intel, Linux x64 and arm64, Windows x64), as <code>all</code> or any single tool. Everything is about 79 MB; one engine-free tool is under 1 MB as a <code>-lite</code> download if you have Node. No installs otherwise.</p>
           <p class="note">Verify with <code>SHA256SUMS.txt</code>. Builds are unsigned, so macOS and Windows may warn on first run.</p>
         </article>
         <article class="card">
           <h3>Docker (any OS)</h3>
           <pre><code>docker run --rm -p 127.0.0.1:5757:5757 \
   ghcr.io/rajatgedam/toolmaster</code></pre>
-          <p>Also <code>toolmaster-latex-to-pdf</code> and <code>toolmaster-latex-to-docx</code>. Runs as non-root.</p>
+          <p>Also one image per tool, for example <code>toolmaster-pdf-pages</code>. Runs as non-root.</p>
         </article>
         <article class="card">
           <h3>For AI agents and scripts</h3>
-          <pre><code>toolmaster latex-to-docx -i cv.tex -o cv.docx --json</code></pre>
-          <p>One JSON result, stable exit codes, plus a Node API and an HTTP API.</p>
+          <pre><code>toolmaster doc-to-markdown -i report.pdf -o -
+toolmaster mcp   # every tool over MCP</code></pre>
+          <p>One JSON result, stable exit codes, an MCP server, a Node API and an HTTP API. Agents call a tool instead of writing a script.</p>
         </article>
       </div>
     </section>
@@ -72,7 +83,7 @@
 
     <section>
       <h2>Security in one paragraph</h2>
-      <p>Loopback-only server, Host and Origin checks, strict CSP, rate limits and size caps. Every engine runs in an isolated temp folder with a timeout, a scrubbed environment and, on macOS, an OS sandbox; LaTeX is policy-scanned and Pandoc runs with its own sandbox. Engine downloads are pinned by SHA-256, the backend has zero runtime npm dependencies, and release files carry build provenance attestations.</p>
+      <p>Loopback-only server, Host and Origin checks, strict CSP, rate limits and size caps. Every engine and every PDF parser runs in a separate process with an isolated temp folder, a timeout, a memory limit, a scrubbed environment and, on macOS, an OS sandbox that blocks your home folder and the network; LaTeX is policy-scanned and Pandoc runs with its own sandbox. Engine downloads are pinned by SHA-256, the core has no runtime npm dependencies, and release files carry build provenance attestations.</p>
     </section>
   </main>
 

@@ -15,3 +15,5 @@ export const tectonic = {
     "win32-x64": { url: `${BASE}/tectonic-0.17.0-x86_64-pc-windows-msvc.zip`, sha256: "f61ce51f0b0ade1015b7de7ef368541c5424e9756ecbd0d7af97d6d48030845f" },
   },
 };
+
+export default tectonic;

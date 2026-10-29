@@ -12,7 +12,7 @@ const STATUS = {
   OUTPUT_TOO_LARGE: 422, TIMEOUT: 504, BUSY: 503, ENGINE_NOT_FOUND: 503,
 };
 const TOOL_ROUTE = /^\/api\/tools\/([a-z][a-z0-9-]{0,39})\/(run|preview)$/;
-const PUBLIC_FIELDS = ["id", "name", "description", "category", "icon", "tags", "version", "input", "output", "preview", "options", "ui", "sample"];
+const PUBLIC_FIELDS = ["id", "name", "description", "useWhen", "category", "icon", "tags", "version", "input", "output", "preview", "options", "ui", "sample"];
 
 const asciiJson = (value) => JSON.stringify(value).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
 

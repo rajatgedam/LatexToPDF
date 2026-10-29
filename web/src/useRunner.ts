@@ -5,10 +5,15 @@ import type { OptionValues, ToolInfo } from "./types";
 export interface Outcome {
   url: string;
   previewUrl?: string;
+  /** Result text for tools with a "text" preview (shown in the page and copyable). */
+  text?: string;
   meta: Record<string, unknown>;
   durationMs: number;
   size: number;
 }
+
+/** Long documents stay downloadable in full but only this much is drawn, so the page stays quick. */
+export const TEXT_PREVIEW_CHARS = 200_000;
 
 export interface RunError {
   code: string;
@@ -50,10 +55,13 @@ export function useRunner() {
           tool.preview === "html" ? previewTool(tool, input, options, ac.signal).catch(() => null) : Promise.resolve(null),
         ]);
         if (ac.signal.aborted) return;
+        const text = tool.preview === "text" ? await result.blob.text() : undefined;
+        if (ac.signal.aborted) return;
         release();
         const outcome: Outcome = {
           url: URL.createObjectURL(result.blob),
           previewUrl: preview ? URL.createObjectURL(preview) : undefined,
+          text,
           meta: result.meta,
           durationMs: result.durationMs,
           size: result.blob.size,

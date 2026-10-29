@@ -79,7 +79,7 @@ test("tools receive resolved options and a context with limits, exec and cacheDi
   assert.deepEqual(seen.req, { input: "hi", options: { mode: "b" } });
   assert.equal(seen.ctx.timeoutMs, 1234);
   assert.equal(seen.ctx.limits.maxInputBytes, 1000);
-  assert.equal(seen.ctx.cacheDir("x"), path.join(dir, "vendor", "cache", "x"));
+  assert.equal(await seen.ctx.cacheDir("x"), path.join(dir, "vendor", "cache", "x"));
   assert.equal(typeof seen.ctx.exec, "function");
   await assert.rejects(seen.ctx.engine("not-declared"), { code: "TOOL_INVALID" });
   await assert.rejects(seen.ctx.engine("fake-engine"), { code: "ENGINE_NOT_FOUND" });
