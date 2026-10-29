@@ -3,6 +3,8 @@
 # Run:   docker run --rm -p 127.0.0.1:5757:5757 latextopdf   (then open http://127.0.0.1:5757)
 
 FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
+# Tectonic builds a TLS client at startup and panics without a CA bundle.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json ./
 COPY src ./src
@@ -19,6 +21,7 @@ RUN npm --prefix web run build
 FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
 LABEL org.opencontainers.image.source="https://github.com/rajatgedam/LatexToPDF" \
       org.opencontainers.image.licenses="MIT"
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
     LATEX2PDF_HOST=0.0.0.0 \
     LATEX2PDF_ALLOW_REMOTE=1 \

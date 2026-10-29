@@ -22,4 +22,5 @@ const sources = [
 for (const source of sources) {
   const r = await compiler.compile({ source }).catch((e) => ({ error: `${e.code}: ${e.message}` }));
   console.log(r.error ? `warmup step failed (${r.error})` : `warmup ok (${r.durationMs} ms)`);
+  if (r.error) process.exitCode = 1;
 }
