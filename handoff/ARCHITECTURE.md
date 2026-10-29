@@ -1,6 +1,6 @@
 # Architecture (source of truth)
 
-If code and this file disagree, fix one of them in the same commit. Last verified: 2026-10-28 (M1 and M2 built and verified; M3-M4 sections are still design, marked [planned]).
+If code and this file disagree, fix one of them in the same commit. Last verified: 2026-10-28 (M1, M2, M3 built and verified; M4 packaging is still design, marked [planned]).
 
 ## Goal
 
@@ -48,7 +48,7 @@ src/server/body.mjs      streaming body reader with byte cap
 src/server/static.mjs    safe static files for web/dist (traversal + symlink escape protected)
 src/server/index.mjs     startServer(), browserCommand()
 scripts/                 install-engine, warmup (prime package cache), [planned] build-portable
-web/                     [planned] React app (built to web/dist, served by the server)
+web/                     React app (Vite + TS); `npm run build:web` -> web/dist, served by the server
 test/unit, test/integration, test/helpers (fake engine)
 examples/resume.tex      known-good sample (XeTeX compatible)
 handoff/                 this folder
