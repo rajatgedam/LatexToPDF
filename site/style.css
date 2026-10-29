@@ -1,0 +1,51 @@
+:root {
+  --paper: #fff8ec;
+  --card: #fffdf7;
+  --ink: #2d2a4a;
+  --soft: #5b5878;
+  --coral: #ff7a70;
+  --teal: #2bb5a6;
+  --sun: #ffc857;
+  --lav: #9b8afb;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #1f1d33; --card: #2a2845; --ink: #f4efe3; --soft: #bdb8d6; --coral: #ff8f85; --teal: #45cdbd; --sun: #ffd47a; --lav: #b3a6ff; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  background-image: radial-gradient(color-mix(in srgb, var(--lav) 22%, transparent) 1.5px, transparent 1.5px);
+  background-size: 26px 26px;
+  color: var(--ink);
+  font: 500 17px/1.6 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+}
+.hero, main, footer { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+.hero { padding-top: 56px; text-align: center; }
+.logo {
+  display: inline-grid; place-items: center; width: 64px; height: 64px;
+  background: var(--sun); color: #2d2a4a; border: 2px solid var(--ink); border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--ink); font-weight: 900; transform: rotate(-4deg);
+}
+h1 { margin: 20px 0 8px; font-size: clamp(30px, 6vw, 48px); line-height: 1.1; }
+.mark { background: linear-gradient(transparent 60%, color-mix(in srgb, var(--coral) 55%, transparent) 60%); }
+h2 { margin-top: 48px; }
+.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.btn {
+  display: inline-block; padding: 10px 20px; color: var(--ink); text-decoration: none; font-weight: 700;
+  background: var(--card); border: 2px solid var(--ink); border-radius: 999px; box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.btn.primary { background: var(--coral); color: #2d0f0c; }
+.btn:hover { transform: translate(-1px, -2px); box-shadow: 4px 5px 0 var(--ink); }
+.btn:focus-visible, a:focus-visible { outline: 3px solid #59c3f0; outline-offset: 2px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.card { padding: 4px 20px 12px; background: var(--card); border: 2px solid var(--ink); border-radius: 16px; box-shadow: 4px 4px 0 var(--ink); }
+.card h3 { margin-bottom: 6px; }
+pre { overflow-x: auto; padding: 12px; background: var(--paper); border-radius: 10px; font-size: 14px; }
+code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.92em; }
+.note { color: var(--soft); font-size: 14px; }
+footer { padding-bottom: 40px; color: var(--soft); text-align: center; }
+a { color: inherit; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

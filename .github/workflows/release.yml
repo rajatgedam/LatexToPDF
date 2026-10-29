@@ -1,0 +1,119 @@
+name: Release
+
+# Push a tag like v0.1.0 to publish. "Run workflow" (manual) only builds and tests artifacts, it never publishes.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, name: darwin-arm64 }
+          - { os: macos-15-intel, name: darwin-x64 }
+          - { os: ubuntu-latest, name: linux-x64 }
+          - { os: ubuntu-24.04-arm, name: linux-arm64 }
+          - { os: windows-latest, name: win32-x64 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm --prefix web ci
+      - run: npm run install:engine
+      - run: npm run build:web
+      - run: npm run warmup
+      - run: npm run package -- --zip
+      - name: Smoke test the packaged app (offline compile)
+        shell: bash
+        env:
+          LATEX2PDF_OFFLINE: "1"
+        run: |
+          d=$(ls -d dist/LatexToPDF-*/ | head -1)
+          exe=$(ls "$d" | grep -E '^latex2pdf(\.exe)?$')
+          "$d$exe" --check --json
+          "$d$exe" -i "$d/examples/resume.tex" -o "$RUNNER_TEMP/smoke.pdf" --json
+          head -c 5 "$RUNNER_TEMP/smoke.pdf" | grep -q '%PDF-'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: LatexToPDF-${{ matrix.name }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Checksums
+        run: cd artifacts && sha256sum *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: artifacts/*.zip
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+
+  docker:
+    name: Docker ${{ matrix.arch }}
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, arch: amd64 }
+          - { os: ubuntu-24.04-arm, arch: arm64 }
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          img="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker build -t "$img:${GITHUB_REF_NAME}-${{ matrix.arch }}" .
+          docker push "$img:${GITHUB_REF_NAME}-${{ matrix.arch }}"
+
+  docker-manifest:
+    name: Docker multi-arch manifest
+    needs: docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Create and push manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          img="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create -t "$img:${GITHUB_REF_NAME}" -t "$img:latest" \
+            "$img:${GITHUB_REF_NAME}-amd64" "$img:${GITHUB_REF_NAME}-arm64"

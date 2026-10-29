@@ -134,6 +134,20 @@ The folder (about 200 MB: 111 MB single-file launcher, 54 MB engine, 45 MB offli
 
 The same binary is also the CLI: `./latex2pdf -i resume.tex -o resume.pdf --json`.
 
+### Option C: download a release (any OS, no Node, no Docker)
+
+Go to the Releases page, download the zip for your system (macOS arm64/x64, Linux x64/arm64, Windows x64), unzip, and open `LatexToPDF.command` / `LatexToPDF.sh` / `LatexToPDF.bat`. Check the zip against `SHA256SUMS.txt`; release files also carry GitHub build-provenance attestations (`gh attestation verify <zip> -R rajatgedam/LatexToPDF`). Builds are unsigned, so macOS/Windows may warn on first run.
+
+### Option D: Docker (any OS)
+
+```bash
+docker run --rm -p 127.0.0.1:5757:5757 ghcr.io/rajatgedam/latextopdf
+# hardened: add  --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges
+# persist downloaded packages: add  -v latextopdf-cache:/app/vendor/tectonic-cache  (drop --read-only for the first run)
+```
+
+Open `http://127.0.0.1:5757`. Always publish the port on `127.0.0.1` and keep the same port number on both sides (the server only answers to `localhost:<port>`). Or build it yourself: `docker build -t latextopdf .`.
+
 ### Option B: from this source folder (needs Node 22+)
 
 Double-click `LatexToPDF.command` (first run installs the engine and builds the UI), or:

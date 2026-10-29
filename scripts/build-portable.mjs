@@ -18,7 +18,8 @@ const exe = path.join(outDir, exeName(platform));
 
 const exists = (p) => access(p).then(() => true, () => false);
 const run = (cmd, args, opts = {}) => {
-  const r = spawnSync(cmd, args, { stdio: "inherit", cwd: root, ...opts });
+  // npm is a .cmd shim on Windows and needs a shell; all arguments here are fixed strings.
+  const r = spawnSync(cmd, args, { stdio: "inherit", cwd: root, shell: platform === "win32" && cmd === "npm", ...opts });
   if (r.status !== 0) throw new Error(`${cmd} ${args[0] ?? ""} failed with status ${r.status}`);
 };
 const dirSize = async (dir) => {
@@ -77,7 +78,7 @@ if (platform === "darwin") {
   }
   run("codesign", ["--remove-signature", exe]);
 }
-run(path.join(root, "node_modules", ".bin", platform === "win32" ? "postject.cmd" : "postject"), postjectArgs({ exe, blob, platform }));
+run(process.execPath, [path.join(root, "node_modules", "postject", "dist", "cli.js"), ...postjectArgs({ exe, blob, platform })]);
 if (platform === "darwin") run("codesign", ["--sign", "-", exe]);
 
 console.log("4/5 copying engine, web UI, cache and docs");
@@ -113,6 +114,7 @@ if (flags.has("--zip")) {
   const zip = path.join(root, "dist", `${name}.zip`);
   await rm(zip, { force: true });
   if (platform === "darwin") run("ditto", ["-c", "-k", "--keepParent", outDir, zip]);
+  else if (platform === "win32") run("tar", ["-a", "-c", "-f", zip, "-C", path.join(root, "dist"), name]);
   else run("zip", ["-qr", zip, name], { cwd: path.join(root, "dist") });
   console.log(`zip: ${zip} (${mb((await stat(zip)).size)})`);
 }
