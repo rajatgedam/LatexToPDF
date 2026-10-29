@@ -14,11 +14,11 @@ These are rules, not suggestions. Every rule has a test in `test/`. Do not weake
 - R2.1 Hard max source size (default 1 MiB), enforced while streaming the body, not after.
 - R2.2 Content-Type allowlist for POST: `application/json`, `text/plain`, `application/x-tex`; else 415.
 - R2.3 Reject NUL bytes and invalid UTF-8 / non-string `source`.
-- R2.4 Static policy scan (`src/validate.mjs`) rejects primitives that touch files, processes or the network: `\write18`, `\immediate\write`, `\openout`, `\openin`, `\input`/`\include`/`\InputIfFileExists` with path-like args, `\read`, `\usepackage{shellesc|catchfile|verbatim-write...}`, `\directlua`, `\pdfshellescape`. This is a first line of defense; it is **not** the only one (see R3).
+- R2.4 Static policy scan (`src/validate.mjs`) rejects primitives that touch files, processes or the network: `\write`/`\write18`, `\immediate`, `\openout`, `\openin`, `\read`, `\input` unless the argument is a bare name (`[A-Za-z0-9_-]+`, needed for `glyphtounicode`), `\include`, `\InputIfFileExists`, `\csname`, `\catcode`, `\scantokens`, `\directlua`, `\special`, `filecontents`, verbatim/listing file inputs, dangerous packages (`shellesc`, `minted`, `catchfile`, ...), and path-escaping arguments (`/abs`, `..`, `~`, `\`, `:`) to `\includegraphics`, `\graphicspath`, `\usepackage`, `\documentclass`, `\XeTeXpicfile`. **Finding (2026-10-28): `tectonic --untrusted` still allows `\input{/absolute/path}`, so this scan is the primary file-read barrier.** Keep the list authoritative and add a test for every new rule.
 - R2.5 Output path (CLI/API) must end in `.pdf`, resolve to a regular file location (not a directory, not a symlink), parent directory must exist (or `mkdir: true`), written atomically (temp + rename).
 
 ## R3 Engine isolation (assume R2.4 can be bypassed)
-- R3.1 Never pass `-Z shell-escape` (Tectonic default is off). A test proves `\write18` does not execute.
+- R3.1 Always pass `--untrusted` and never pass `-Z shell-escape` (default is off). Integration test proves `\write18` does not execute even with the policy scan bypassed.
 - R3.2 Run Tectonic with `spawn` (no shell), argument array only, never interpolating user data into args.
 - R3.3 Fresh `fs.mkdtemp` directory (mode 0700) per compile, deleted in `finally`. The engine cwd is that directory only.
 - R3.4 Scrubbed environment: only `PATH` (minimal), `HOME` unchanged for cache lookup, `TECTONIC_CACHE_DIR`, `LANG`. No inherited secrets (`GITHUB_TOKEN`, cloud keys etc.).
