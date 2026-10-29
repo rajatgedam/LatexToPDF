@@ -5,58 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
-  <title>LatexToPDF: LaTeX to PDF that never leaves your machine</title>
-  <meta name="description" content="Free, open-source, local LaTeX to PDF tool with a drag-and-drop UI, a CLI for AI agents and a Docker image.">
+  <title>ToolMaster: small tools that never leave your machine</title>
+  <meta name="description" content="Free, open-source menu of local tools: LaTeX to PDF, LaTeX to DOCX and more. Web app, CLI for AI agents, Docker, one-tool downloads.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='16' fill='%23FFC857' stroke='%232D2A4A' stroke-width='4'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="hero">
-    <span class="logo" aria-hidden="true">TeX</span>
-    <h1>LaTeX → PDF, <span class="mark">on your machine</span></h1>
-    <p>Paste or drop LaTeX, get a PDF with live preview. Free, open source (MIT), no accounts, no uploads.</p>
+    <span class="logo" aria-hidden="true">TM</span>
+    <h1>ToolMaster, <span class="mark">all local</span></h1>
+    <p>A menu of small, free tools that run on your machine: convert LaTeX to PDF or Word today, more tomorrow. No accounts, no uploads.</p>
     <p class="cta">
-      <a class="btn primary" href="https://github.com/rajatgedam/LatexToPDF/releases/latest">Download for your OS</a>
-      <a class="btn" href="https://github.com/rajatgedam/LatexToPDF">View on GitHub</a>
+      <a class="btn primary" href="https://github.com/rajatgedam/ToolMaster/releases/latest">Download</a>
+      <a class="btn" href="https://github.com/rajatgedam/ToolMaster">View on GitHub</a>
     </p>
   </header>
 
   <main>
     <section>
-      <h2>Pick your way to run it</h2>
+      <h2>Tools</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>LaTeX to PDF</h3>
+          <p>Typeset LaTeX (or plain text) into a print-ready PDF with live preview. Great for resumes.</p>
+          <p class="note">Engine: Tectonic (MIT)</p>
+        </article>
+        <article class="card">
+          <h3>LaTeX to DOCX</h3>
+          <p>Turn LaTeX into an editable Word document: headings, lists, tables, links and math carry over.</p>
+          <p class="note">Engine: Pandoc (GPL-2.0+, separate program)</p>
+        </article>
+        <article class="card">
+          <h3>Your tool next</h3>
+          <p>Each tool is a small self-contained module. Add a folder, it appears in the menu, the CLI and the API.</p>
+          <p class="note">See the README: "Add your own tool"</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Take only what you need</h2>
       <div class="grid">
         <article class="card">
           <h3>Download and double-click</h3>
-          <p>One zip per OS (macOS Apple Silicon and Intel, Linux x64 and arm64, Windows x64). Unzip, open <code>LatexToPDF.command</code>, <code>LatexToPDF.sh</code> or <code>LatexToPDF.bat</code>. No installs.</p>
-          <p class="note">Verify with the <code>SHA256SUMS.txt</code> on the release. Builds are unsigned, so macOS and Windows may show a first-run warning.</p>
+          <p>One zip per OS (macOS Apple Silicon and Intel, Linux x64 and arm64, Windows x64), as <code>all</code>, <code>latex-to-pdf</code> or <code>latex-to-docx</code>. No installs.</p>
+          <p class="note">Verify with <code>SHA256SUMS.txt</code>. Builds are unsigned, so macOS and Windows may warn on first run.</p>
         </article>
         <article class="card">
           <h3>Docker (any OS)</h3>
           <pre><code>docker run --rm -p 127.0.0.1:5757:5757 \
-  ghcr.io/rajatgedam/latextopdf</code></pre>
-          <p>Then open <code>http://127.0.0.1:5757</code>. Runs as non-root; add <code>--read-only --tmpfs /tmp --cap-drop ALL</code> to lock it down further.</p>
+  ghcr.io/rajatgedam/toolmaster</code></pre>
+          <p>Also <code>toolmaster-latex-to-pdf</code> and <code>toolmaster-latex-to-docx</code>. Runs as non-root.</p>
         </article>
         <article class="card">
           <h3>For AI agents and scripts</h3>
-          <pre><code>latex2pdf -i resume.tex -o resume.pdf --json</code></pre>
-          <p>One JSON result, stable exit codes, also a Node API and an HTTP API. See the README.</p>
+          <pre><code>toolmaster latex-to-docx -i cv.tex -o cv.docx --json</code></pre>
+          <p>One JSON result, stable exit codes, plus a Node API and an HTTP API.</p>
         </article>
       </div>
     </section>
 
     <section>
       <h2>Why there is no "convert online" button here</h2>
-      <p>GitHub Pages can only host static files, and running other people's LaTeX on a public server is a real security risk (LaTeX can read files and run programs unless it is locked down). It also means your resume would travel to someone else's computer. So the converter runs locally, where your files stay yours. This page is just the front door.</p>
+      <p>GitHub Pages can only host static files, and running other people's documents on a public server is a real security risk (LaTeX can read files and run programs unless it is locked down). It would also mean your resume travels to someone else's computer. So the tools run locally, where your files stay yours. This page is just the front door.</p>
     </section>
 
     <section>
       <h2>Security in one paragraph</h2>
-      <p>Loopback-only server, Host and Origin checks, strict CSP, rate limits and size caps; each compile runs in an isolated temp folder with a timeout, a scrubbed environment, a static policy scan and, on macOS, an OS sandbox. The engine download is pinned by SHA-256 and the backend has zero runtime npm dependencies. Release files carry build provenance attestations. Details are in the repository's security rules.</p>
+      <p>Loopback-only server, Host and Origin checks, strict CSP, rate limits and size caps. Every engine runs in an isolated temp folder with a timeout, a scrubbed environment and, on macOS, an OS sandbox; LaTeX is policy-scanned and Pandoc runs with its own sandbox. Engine downloads are pinned by SHA-256, the backend has zero runtime npm dependencies, and release files carry build provenance attestations.</p>
     </section>
   </main>
 
   <footer>
-    <p>Powered by <a href="https://github.com/tectonic-typesetting/tectonic">Tectonic</a> (MIT). Made by Rajat Gedam.</p>
+    <p>Powered by <a href="https://github.com/tectonic-typesetting/tectonic">Tectonic</a> and <a href="https://pandoc.org">Pandoc</a>. Made by Rajat Gedam.</p>
   </footer>
 </body>
 </html>

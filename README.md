@@ -1,84 +1,135 @@
-# LatexToPDF
+# ToolMaster
 
-Local, secure LaTeX (or plain text) to PDF. One engine, three ways in: a CLI and Node API for AI agents, an HTTP API, and a small React UI for humans. Nothing leaves your machine.
+A menu of small, free tools that run **entirely on your machine**. Pick a tool in the web app, a terminal menu, a CLI command or the Node API. Nothing is uploaded. Every tool is a self-contained module, so you can ship (and download) just the ones you need.
 
-Engine: [Tectonic](https://github.com/tectonic-typesetting/tectonic) 0.17.0 (XeTeX based, MIT), installed locally by script with a pinned SHA-256. Backend has zero npm runtime dependencies.
+| Tool | id | In → Out | Engine |
+| --- | --- | --- | --- |
+| LaTeX to PDF | `latex-to-pdf` | `.tex` `.latex` `.txt` → `.pdf` | [Tectonic](https://github.com/tectonic-typesetting/tectonic) (MIT) |
+| LaTeX to DOCX | `latex-to-docx` | `.tex` `.latex` `.txt` → `.docx` | [Pandoc](https://pandoc.org) (GPL-2.0+, downloaded separately, never bundled in git) |
 
-Status: built and tested on macOS arm64. Linux/Windows code paths exist but are untested; the OS sandbox is macOS-only (see Security).
+Status: built and tested on macOS arm64; Linux and Windows are exercised by CI and the release smoke tests. The OS sandbox is macOS-only (see Security). The backend has zero npm runtime dependencies.
 
 ## For AI agent sessions: call it like a method
 
-Read `handoff/ARCHITECTURE.md` for the full contract. Everything below is enough to use the tool.
+The full contract is in `handoff/ARCHITECTURE.md`. This section is enough to use the tool.
 
 ### 0. One-time check (do this first)
 
 ```bash
-cd <repo>/LatexToPDF
-node bin/latex2pdf.mjs --check --json     # {"ok":true,"engine":{"found":true,"version":"Tectonic 0.17.0"}}
+cd <repo>/ToolMaster
+node bin/toolmaster.mjs doctor --json        # {"ok":true,"tools":{"latex-to-pdf":{"ready":true,...},...}}
+node bin/toolmaster.mjs list --json          # every tool, its options and readiness
 ```
 
-If `found` is false: `npm run install:engine` (downloads about 20 MB, verifies SHA-256). Node >= 22 is required for a source checkout. The portable build (see bottom) needs no Node.
+If a tool is not `ready`: `node bin/toolmaster.mjs install [tool ...]` (SHA-256 verified downloads). Node >= 22 for a source checkout; the portable builds need no Node.
 
-### 1. CLI (preferred for agents)
+### 1. CLI
 
 ```bash
-node bin/latex2pdf.mjs -i resume.tex -o /abs/path/out/resume.pdf --mkdir --json
-cat resume.tex | node bin/latex2pdf.mjs -i - -o out.pdf --json     # stdin
+node bin/toolmaster.mjs latex-to-pdf  -i resume.tex -o /abs/out/resume.pdf  --mkdir --json
+node bin/toolmaster.mjs latex-to-docx -i resume.tex -o /abs/out/resume.docx -O toc=true --json
+cat resume.tex | node bin/toolmaster.mjs latex-to-docx -i - -o out.docx --json     # stdin
+node bin/toolmaster.mjs sample latex-to-pdf > known-good.tex                        # a known-good input
+node bin/toolmaster.mjs help latex-to-docx                                          # options and example
 ```
+
+`toolmaster <tool> ...` is the same as `toolmaster run <tool> ...`.
 
 | Flag | Meaning |
 | --- | --- |
-| `-i, --input <path or ->` | `.tex`/`.txt` file, or `-` for stdin (UTF-8, max 1 MiB) |
-| `-o, --output <path>` | must end in `.pdf`; overwritten atomically; no symlinks/directories |
-| `-m, --mode` | `auto` (default), `latex`, `fragment`, `text` |
+| `-i, --input <path or ->` | input file, or `-` for stdin (UTF-8 text tools: max 1 MiB) |
+| `-o, --output <path>` | must end in the tool's extension (`.pdf`, `.docx`); overwritten atomically; no symlinks or directories |
+| `-O key=value` | tool option, repeatable (`-O mode=latex`, `-O toc`) |
 | `--mkdir` | create missing parent folders of `--output` |
 | `--timeout <ms>` | default 60000 |
-| `--json` | one JSON object on stdout (success and failure) |
+| `--json` | one JSON object on stdout for success and failure |
 
-Success: `{"ok":true,"outputPath":"...","bytes":20690,"pages":1,"durationMs":379,"warnings":[...]}`
-Failure: `{"ok":false,"error":{"code":"COMPILE_FAILED","message":"...","log":"..."}}`
+Success: `{"ok":true,"tool":"latex-to-pdf","outputPath":"...","bytes":20690,"meta":{"pages":1,"kind":"latex"},"durationMs":379,"warnings":[...]}`
+Failure: `{"ok":false,"error":{"code":"TOOL_FAILED","message":"...","log":"..."}}`
 
-Exit codes: `0` ok, `1` unexpected, `2` bad usage/input/output path, `3` policy violation (forbidden LaTeX construct), `4` compile failed (read `error.log`), `5` timeout, `6` engine missing, `7` busy.
+Exit codes: `0` ok, `1` unexpected, `2` bad usage/input/output path/unknown tool, `3` policy violation (forbidden LaTeX construct), `4` tool failed (read `error.log`), `5` timeout, `6` engine missing, `7` busy.
 
-Input modes: `auto` treats text containing `\documentclass` as a full document, text with other LaTeX commands as a fragment (wrapped in an article preamble), and anything else as plain text (all special characters escaped). Force with `-m`.
+Tool options (`toolmaster help <tool>` shows them):
+
+| Tool | Option | Values | Meaning |
+| --- | --- | --- | --- |
+| both | `mode` | `auto` (default), `latex`, `text` (PDF also `fragment`) | how to interpret the input; `auto` treats text containing LaTeX commands as LaTeX |
+| `latex-to-docx` | `toc` | `true`/`false` | add a table of contents |
 
 ### 2. Node API
 
 ```js
-import { compileToFile, compile, LatexToPdfError } from "/abs/path/to/LatexToPDF/src/index.mjs";
+import { createToolMaster } from "/abs/path/to/ToolMaster/core/index.mjs";
 
-const r = await compileToFile({ input: "resume.tex", output: "/abs/out/resume.pdf", mkdir: true });
-// { outputPath, bytes, pages, durationMs, warnings, kind }
+const tm = await createToolMaster();                        // discovers tools/*, reads TOOLMASTER_* env
+const r = await tm.runner.runToFile({ tool: "latex-to-docx", input: "resume.tex", output: "/abs/out/resume.docx", mkdir: true });
+// { outputPath, bytes, meta, warnings, durationMs }
 
-const { pdf, pages } = await compile({ source: latexString });   // pdf is a Buffer
-
-try { await compile({ source }); } catch (e) {
-  if (e instanceof LatexToPdfError) console.log(e.code, e.message, e.log);
-}
+const { data, meta } = await tm.runner.run("latex-to-pdf", { input: latexString, options: { mode: "latex" } });  // data is a Buffer
 ```
 
-Error codes: `CONFIG_INVALID`, `INPUT_EMPTY`, `INPUT_TOO_LARGE`, `INPUT_INVALID`, `POLICY_VIOLATION`, `ENGINE_NOT_FOUND`, `COMPILE_FAILED`, `TIMEOUT`, `OUTPUT_TOO_LARGE`, `OUTPUT_PATH_INVALID`, `BUSY`. Pass exactly one of `input` or `source` to `compileToFile`.
+Errors are `ToolMasterError` with `.code` in `CONFIG_INVALID`, `INPUT_EMPTY`, `INPUT_TOO_LARGE`, `INPUT_INVALID`, `POLICY_VIOLATION`, `TOOL_NOT_FOUND`, `TOOL_INVALID`, `ENGINE_NOT_FOUND`, `TOOL_FAILED`, `TIMEOUT`, `OUTPUT_TOO_LARGE`, `OUTPUT_PATH_INVALID`, `BUSY`. Pass exactly one of `input` (path) or `source` (data) to `runToFile`.
 
-### 3. HTTP API (when the UI server is running: `node bin/latex2pdf-ui.mjs --no-open`)
+### 3. HTTP API (while `toolmaster ui --no-open` runs)
 
 ```bash
-curl -s -X POST http://127.0.0.1:5757/api/compile -H 'content-type: application/json' \
-  -d '{"source":"\\documentclass{article}\\begin{document}Hi\\end{document}"}' -o out.pdf
-curl -s -X POST http://127.0.0.1:5757/api/compile -H 'content-type: text/plain' --data-binary @resume.tex -o out.pdf
+curl -s http://127.0.0.1:5757/api/tools                       # catalog + readiness
+curl -s -X POST http://127.0.0.1:5757/api/tools/latex-to-pdf/run -H 'content-type: application/json' \
+  -d '{"input":"\\documentclass{article}\\begin{document}Hi\\end{document}"}' -o out.pdf
+curl -s -X POST 'http://127.0.0.1:5757/api/tools/latex-to-docx/run?toc=true' -H 'content-type: text/plain' --data-binary @resume.tex -o out.docx
+curl -s -X POST http://127.0.0.1:5757/api/tools/latex-to-docx/preview -H 'content-type: text/plain' --data-binary @resume.tex   # HTML preview
 ```
 
-`200 application/pdf` (headers `X-Latex2pdf-Pages`, `X-Latex2pdf-Duration-Ms`) or JSON `{"error":{"code","message","log?"}}` with 400/413/415/422/429/503/504. `GET /api/health` reports the engine. Loopback only; requests with a foreign `Host`/`Origin` get 403.
+`200` with the file (headers `X-ToolMaster-Duration-Ms`, `X-ToolMaster-Meta` JSON) or JSON `{"error":{"code","message","log?"}}` with 400/404/413/415/422/429/503/504. Text tools take JSON `{input, options}` or a raw `text/*` body with options in the query string; binary tools take `application/octet-stream`. Loopback only; a foreign `Host`/`Origin` gets 403.
 
 ### Rules and gotchas for agents
 
-- Use absolute output paths. The tool never writes anywhere except `--output`.
-- It compiles with XeTeX. Whole-line pdfTeX-only directives (`\pdfgentounicode=1`, `\input{glyphtounicode}`, ...) are stripped automatically and reported as `compat:` warnings.
-- Forbidden on purpose (exit 3 / `POLICY_VIOLATION`): `\write18`, `\write`/`\openout`/`\openin`/`\read`, `\input` of anything but a bare name, `\include`, `\csname`, `\catcode`, `\directlua`, `shellesc`/`minted`/`catchfile` and similar packages, path-like arguments (`/abs`, `..`, `~`) to `\includegraphics`/`\usepackage`/`\documentclass`. Do not try to work around it.
-- Relative images/includes do not work: each compile runs in an empty temp directory.
-- First use of a new LaTeX package downloads it (needs internet) unless `LATEX2PDF_OFFLINE=1` with a primed cache (`npm run warmup`). Cold compile about 10 s, warm about 0.5 s.
-- Example input that is known good: `examples/resume.tex`.
-- Max source 1 MiB, max PDF 25 MiB, 2 concurrent compiles (extra calls fail fast with `BUSY`/exit 7: retry after a moment).
-- Run `npm test` after changing anything in this repo, and update `handoff/` (see below).
+- Use absolute output paths. A tool never writes anywhere except `--output`.
+- LaTeX to PDF compiles with XeTeX. Whole-line pdfTeX-only directives (`\pdfgentounicode=1`, `\input{glyphtounicode}`, ...) are stripped automatically and reported as `compat:` warnings.
+- Forbidden on purpose for LaTeX to PDF (exit 3): `\write18`, `\write`/`\openout`/`\openin`/`\read`, `\input` of anything but a bare name, `\include`, `\csname`, `\catcode`, `\directlua`, shell/`minted`-style packages, path-like arguments (`/abs`, `..`, `~`) to `\includegraphics`/`\usepackage`/`\documentclass`. Do not work around it. LaTeX to DOCX runs Pandoc with `--sandbox`, so documents cannot read files either.
+- Each run happens in an empty temp directory: relative images and includes do not work.
+- LaTeX to PDF downloads a package the first time it is used (internet needed) unless `TOOLMASTER_OFFLINE=1` with a primed cache (`toolmaster warmup`). Cold compile about 10 s, warm about 0.5 s. LaTeX to DOCX takes about 0.3 s.
+- DOCX quality: Pandoc converts structure (headings, lists, tables, links, math). Layout-only commands (custom resume macros, `\hfill`, `\vspace`) are dropped, so expect an editable draft rather than a pixel copy of the PDF.
+- Max text input 1 MiB, max output 25 MiB, 2 concurrent jobs (extra calls fail fast with `BUSY`/exit 7: retry shortly).
+- Run `npm test` after changing anything here and update `handoff/`.
+
+## Pick only what you need
+
+Every tool lives in its own folder (`tools/<id>/`) and the core never imports a tool directly, so a build contains exactly the tools you choose.
+
+| You want | Get |
+| --- | --- |
+| Everything | `ToolMaster-all-<os>-<arch>.zip` or `ghcr.io/rajatgedam/toolmaster` |
+| Only LaTeX to PDF | `ToolMaster-latex-to-pdf-<os>-<arch>.zip` or `ghcr.io/rajatgedam/toolmaster-latex-to-pdf` |
+| Only LaTeX to DOCX | `ToolMaster-latex-to-docx-<os>-<arch>.zip` or `ghcr.io/rajatgedam/toolmaster-latex-to-docx` |
+| A custom mix | `npm run package -- --tools latex-to-pdf,latex-to-docx` or `docker build --build-arg TOOLS=a,b .` |
+
+Measured on macOS arm64 (zip / unpacked): all 107 MB / 394 MB, DOCX only 76 MB / 298 MB, PDF only 66 MB / 207 MB. The launcher (a single-file Node runtime, 111 MB) is the fixed part; Pandoc is about 190 MB unpacked and Tectonic about 54 MB plus a 45 MB offline package cache (`--no-cache` drops it). Platforms: macOS arm64/x64, Linux x64/arm64, Windows x64. Pandoc is GPL-2.0-or-later; it ships as a separate unmodified program with its licence notice in `THIRD-PARTY-NOTICES.txt`.
+
+### Add your own tool
+
+Create `tools/<id>/tool.mjs`:
+
+```js
+import { defineTool } from "../../core/sdk.mjs";
+
+export default defineTool({
+  manifest: {
+    id: "my-tool", name: "My Tool", description: "What it does", category: "Documents", icon: "🧰",
+    input: { kind: "text", accept: [".txt"] },            // or "binary"
+    output: { contentType: "text/plain", extension: "txt" },
+    preview: "none",                                        // "file" | "html" | "none"
+    options: [{ id: "shout", label: "Shout", type: "boolean", default: false }],
+    engines: [],                                            // optional external programs (pinned URL + sha256)
+    ui: { action: "Run" },
+  },
+  async run(ctx, { input, options }) {
+    return { data: Buffer.from(options.shout ? input.toUpperCase() : input), meta: {}, warnings: [] };
+  },
+});
+```
+
+It then shows up in the menu, the CLI (`toolmaster my-tool -i ... -o ...`), the HTTP API and the web app with no other change. Engines run through `ctx.exec(...)` (temp dir, scrubbed env, timeout, OS sandbox). See `handoff/ARCHITECTURE.md`, section "Adding a tool".
 
 ## Configuration
 
@@ -86,83 +137,74 @@ All optional environment variables:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `LATEX2PDF_PORT` | 5757 | UI server port (random free port if busy and unset) |
-| `LATEX2PDF_HOST` | 127.0.0.1 | Bind address; non-loopback also needs `LATEX2PDF_ALLOW_REMOTE=1` and `LATEX2PDF_ALLOWED_HOSTS` |
-| `LATEX2PDF_MAX_INPUT_BYTES` | 1048576 | Max source size |
-| `LATEX2PDF_MAX_OUTPUT_BYTES` | 26214400 | Max PDF size |
-| `LATEX2PDF_TIMEOUT_MS` | 60000 | Compile timeout |
-| `LATEX2PDF_MAX_CONCURRENCY` | 2 | Parallel compiles |
-| `LATEX2PDF_RATE_LIMIT_PER_MIN` | 60 | Per-IP HTTP rate limit |
-| `LATEX2PDF_ENGINE` | auto | Path to a tectonic binary |
-| `LATEX2PDF_OFFLINE` | 0 | `1` = no network (cached packages only) |
-| `LATEX2PDF_SANDBOX` | auto | `auto` / `on` / `off` (macOS Seatbelt sandbox for the engine) |
-| `TECTONIC_CACHE_DIR` | `vendor/tectonic-cache` | Package cache location |
+| `TOOLMASTER_PORT` | 5757 | web app port (a free port is used if busy and unset) |
+| `TOOLMASTER_HOST` | 127.0.0.1 | bind address; non-loopback also needs `TOOLMASTER_ALLOW_REMOTE=1` and `TOOLMASTER_ALLOWED_HOSTS` |
+| `TOOLMASTER_TOOLS` | all found | comma list of tool ids to enable |
+| `TOOLMASTER_MAX_INPUT_BYTES` | 1048576 | max text input (a tool manifest may set its own) |
+| `TOOLMASTER_MAX_OUTPUT_BYTES` | 26214400 | max output size |
+| `TOOLMASTER_TIMEOUT_MS` | 60000 | per-job timeout |
+| `TOOLMASTER_MAX_CONCURRENCY` | 2 | parallel jobs |
+| `TOOLMASTER_RATE_LIMIT_PER_MIN` | 60 | per-IP HTTP rate limit |
+| `TOOLMASTER_OFFLINE` | 0 | `1` = no network for engines that can use it (cached packages only) |
+| `TOOLMASTER_SANDBOX` | auto | `auto` / `on` / `off` (macOS Seatbelt sandbox for engines) |
+| `TOOLMASTER_ENGINE_<ID>` | auto | path to an engine binary, e.g. `TOOLMASTER_ENGINE_PANDOC` |
+| `TOOLMASTER_CACHE_DIR` | `vendor/cache` | where engines keep package caches |
 
 ## Security (summary; rules live in `handoff/SECURITY_RULES.md`)
 
-Based on OWASP Top 10 and Cloudflare-style edge controls applied in-process: loopback bind, Host/Origin allowlists (DNS rebinding and CSRF), no CORS, strict CSP and security headers, per-IP rate limit, streaming body cap, content-type allowlist, generic error bodies, static path traversal and symlink protection. Compilation: static policy scan, Tectonic `--untrusted`, isolated temp dir, scrubbed environment, timeout with process-group kill, size caps, concurrency cap, and on macOS a Seatbelt sandbox that blocks reading your home folder and writing outside the work/cache folders. Supply chain: no runtime npm dependencies in the backend, engine pinned by SHA-256, `npm audit` clean.
+Based on OWASP Top 10 and Cloudflare-style edge controls applied in-process: loopback bind, Host/Origin allowlists (DNS rebinding and CSRF), no CORS, strict CSP and security headers, per-IP rate limit, streaming body cap, content-type allowlist, generic error bodies, safe static serving. Every external program runs through one hardened path: isolated temp dir, scrubbed environment, timeout with process-group kill, size caps, concurrency cap, and on macOS a Seatbelt sandbox that blocks reading your home folder and writing outside the work and cache folders. LaTeX to PDF adds a static policy scan and Tectonic `--untrusted`; LaTeX to DOCX adds Pandoc `--sandbox` and a script-less, network-less iframe preview. Supply chain: no runtime npm dependencies in the backend, engines pinned by SHA-256, SHA-pinned CI actions, `npm audit` clean, build provenance attestations on releases.
 
-Known limits: on Linux/Windows there is no OS sandbox yet, so the policy scan is the only file-read barrier there (Tectonic `--untrusted` still allows absolute-path `\input`).
+Known limits: on Linux/Windows there is no OS sandbox yet, so tool-level controls (the LaTeX policy scan, Pandoc `--sandbox`) are the file-read barrier there. Tectonic `--untrusted` still allows absolute-path `\input`.
 
 ## Development
 
 ```bash
-npm run setup          # engine + web install + web build
-npm test               # unit (hermetic, fake engine) + integration (real engine) + web (Vitest)
-npm run coverage       # backend coverage gate: >= 80% lines on src/
+npm run setup          # install engines + web deps + build the web app
+npm test               # unit (hermetic, fake engines) + integration (real engines) + web (Vitest)
+npm run coverage       # backend coverage gate: >= 80% lines on core/ and tools/
 npm --prefix web run coverage
-npm --prefix web run dev     # UI dev server on :5173 (proxy to API on :5757)
+npm --prefix web run dev     # web dev server on :5173 (proxy to the API on :5757)
 ```
 
-Repo map and decisions: `handoff/ARCHITECTURE.md`. Progress and findings: `handoff/PROGRESS.md`. Latest session notes: newest `handoff/HANDOFF_*.md`. UI design language: `handoff/DESIGN_LANGUAGE.md`. Test-first, keep coverage at 80%+, update `handoff/` after each milestone.
+Repo map and decisions: `handoff/ARCHITECTURE.md`. Progress and findings: `handoff/PROGRESS.md`. Latest session notes: newest `handoff/HANDOFF_*.md`. Design language: `handoff/DESIGN_LANGUAGE.md`. Test first, keep coverage at 80%+, update `handoff/` after each milestone.
 
 ---
 
 ## Running it yourself (humans)
 
-### Option A: portable app (no Node needed)
+### Option A: download a release (any OS, no Node, no Docker)
 
-Build once on your Mac (about a minute), then it runs from any folder:
+Open the repository's Releases page, download the zip for your system (see "Pick only what you need"), unzip, and double-click `ToolMaster.command` (macOS), `ToolMaster.sh` (Linux) or `ToolMaster.bat` (Windows). Your browser opens the tool menu. Check the zip against `SHA256SUMS.txt`; release files also carry build-provenance attestations (`gh attestation verify <zip> -R rajatgedam/ToolMaster`). Builds are unsigned, so macOS/Windows may warn on first run; on macOS run `xattr -dr com.apple.quarantine <folder>` once.
 
-```bash
-npm run setup                      # first time only
-npm run package                    # add -- --zip to also make a zip, -- --no-cache for a smaller folder
-open dist/LatexToPDF-darwin-arm64  # double-click LatexToPDF.command
-```
+Prefer the terminal? Run `./toolmaster` (no arguments) for an interactive menu: pick a tool, type the input path and options, get the file. `./toolmaster ui` opens the web app, `./toolmaster list` shows what is inside.
 
-The folder (about 200 MB: 111 MB single-file launcher, 54 MB engine, 45 MB offline package cache) is self-contained. Copy it anywhere, even to another Mac of the same CPU type. If macOS says it can't verify the app, run `xattr -dr com.apple.quarantine <folder>` once. Double-clicking opens your browser at `http://127.0.0.1:5757`.
-
-The same binary is also the CLI: `./latex2pdf -i resume.tex -o resume.pdf --json`.
-
-### Option C: download a release (any OS, no Node, no Docker)
-
-Go to the Releases page, download the zip for your system (macOS arm64/x64, Linux x64/arm64, Windows x64), unzip, and open `LatexToPDF.command` / `LatexToPDF.sh` / `LatexToPDF.bat`. Check the zip against `SHA256SUMS.txt`; release files also carry GitHub build-provenance attestations (`gh attestation verify <zip> -R rajatgedam/LatexToPDF`). Builds are unsigned, so macOS/Windows may warn on first run.
-
-### Option D: Docker (any OS)
+### Option B: Docker (any OS)
 
 ```bash
-docker run --rm -p 127.0.0.1:5757:5757 ghcr.io/rajatgedam/latextopdf
+docker run --rm -p 127.0.0.1:5757:5757 ghcr.io/rajatgedam/toolmaster
+# one tool: ghcr.io/rajatgedam/toolmaster-latex-to-docx  (or -latex-to-pdf)
 # hardened: add  --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges
-# persist downloaded packages: add  -v latextopdf-cache:/app/vendor/tectonic-cache  (drop --read-only for the first run)
+# keep downloaded packages: add  -v toolmaster-cache:/app/vendor/cache  (drop --read-only on the first run)
 ```
 
-Open `http://127.0.0.1:5757`. Always publish the port on `127.0.0.1` and keep the same port number on both sides (the server only answers to `localhost:<port>`). Or build it yourself: `docker build -t latextopdf .`.
+Open `http://127.0.0.1:5757`. Always publish the port on `127.0.0.1` and keep the same port number on both sides (the server only answers to `localhost:<port>`). Or build it yourself: `docker build -t toolmaster .`.
 
-### Option B: from this source folder (needs Node 22+)
+### Option C: from this source folder (needs Node 22+)
 
-Double-click `LatexToPDF.command` (first run installs the engine and builds the UI), or:
+Double-click `ToolMaster.command` (first run installs the engines and builds the web app), or:
 
 ```bash
 npm run setup          # first time
-npm start              # starts the server and opens the browser
+npm start              # starts the web app and opens the browser
+npm run package -- --tools latex-to-docx --zip   # build your own portable one-tool bundle into dist/
 ```
 
-### Using the app
+### Using the web app
 
-1. Paste LaTeX on the left, or drop a `.tex`/`.txt` file anywhere on that side (or press Open file / Load sample).
-2. Press Compile (or Cmd/Ctrl + Enter). Turn on Auto-compile to rebuild a moment after you stop typing.
-3. The PDF previews on the right. Press Download PDF to save it.
-4. If LaTeX complains, the error log appears on the right.
+1. The start menu lists your tools. Search them, or press `/` to search and `1`-`9` to open a tool.
+2. Add input on the left: paste, drop a file anywhere on that side, or use Open file / Load sample.
+3. Set options if the tool has any, then press the action button (Compile, Convert, ...) or Ctrl/Cmd + Enter. Auto-run re-runs a moment after you stop typing.
+4. The result previews on the right; press Download to save it. If something fails, the details appear on the right.
 
 Stop the app with Ctrl+C in its terminal window.
 
@@ -170,9 +212,9 @@ Stop the app with Ctrl+C in its terminal window.
 
 | Symptom | Fix |
 | --- | --- |
-| "Engine missing" in the footer | `npm run install:engine` |
-| First compile takes about 10 s | Tectonic is downloading packages once; later runs are fast |
-| Port busy | The app picks a free port automatically; or set `LATEX2PDF_PORT` |
-| Compile blocked as "Forbidden LaTeX construct" | You used a file/shell primitive that is disabled for safety; remove it |
-| Works online, fails offline | Run `npm run warmup` once online, then use `LATEX2PDF_OFFLINE=1` |
-
+| A tool card says "Needs setup" | `toolmaster install <tool>` (or the menu's "Install or repair engines") |
+| First LaTeX to PDF run takes about 10 s | Tectonic is downloading packages once; later runs are fast |
+| Port busy | The app picks a free port automatically; or set `TOOLMASTER_PORT` |
+| "Forbidden LaTeX construct" | You used a file/shell primitive that is disabled for safety; remove it |
+| Works online, fails offline | Run `toolmaster warmup` once online, then use `TOOLMASTER_OFFLINE=1` |
+| DOCX looks plainer than the PDF | Expected: Pandoc keeps structure, not LaTeX layout macros |

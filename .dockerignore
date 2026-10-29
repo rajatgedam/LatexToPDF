@@ -8,5 +8,7 @@ coverage
 .github
 handoff
 test
+core/test
+tools/*/test
 *.log
 .env*

@@ -1,11 +1,13 @@
 import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
-import { ACCEPT, readFileText, validateFile } from "../files";
+import { DEFAULT_MAX_BYTES, readFileText, validateFile } from "../files";
+import type { ToolInfo } from "../types";
 
 interface Props {
+  tool: ToolInfo;
   source: string;
   onChange: (value: string) => void;
   onFile: (text: string, name: string) => void;
-  onCompile: () => void;
+  onRun: () => void;
   onSample: () => void;
   onClear: () => void;
   notice: string | null;
@@ -15,7 +17,8 @@ interface Props {
 const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
 const MAX_GUTTER_LINES = 20_000;
 
-export function EditorPane({ source, onChange, onFile, onCompile, onSample, onClear, notice, onNotice }: Props) {
+/** Text editor with a line gutter and whole-pane file drop, for any tool whose input.kind is "text". */
+export function EditorPane({ tool, source, onChange, onFile, onRun, onSample, onClear, notice, onNotice }: Props) {
   const [dragging, setDragging] = useState(false);
   const depth = useRef(0);
   const area = useRef<HTMLTextAreaElement>(null);
@@ -23,6 +26,7 @@ export function EditorPane({ source, onChange, onFile, onCompile, onSample, onCl
   const cursor = useRef<number | null>(null);
   const trapTab = useRef(true);
   const picker = useRef<HTMLInputElement>(null);
+  const accept = tool.input.accept;
 
   useLayoutEffect(() => {
     if (cursor.current !== null && area.current) {
@@ -36,7 +40,7 @@ export function EditorPane({ source, onChange, onFile, onCompile, onSample, onCl
 
   async function takeFile(file: File | undefined) {
     if (!file) return;
-    const problem = validateFile(file);
+    const problem = validateFile(file, accept, tool.input.maxBytes ?? DEFAULT_MAX_BYTES);
     if (problem) return onNotice(problem);
     try {
       onFile(await readFileText(file), file.name);
@@ -49,7 +53,7 @@ export function EditorPane({ source, onChange, onFile, onCompile, onSample, onCl
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      return onCompile();
+      return onRun();
     }
     if (e.key === "Escape") trapTab.current = false;
     else if (e.key !== "Tab") trapTab.current = true;
@@ -63,15 +67,17 @@ export function EditorPane({ source, onChange, onFile, onCompile, onSample, onCl
   }
 
   return (
-    <section className="pane pane--editor" aria-label="LaTeX editor">
+    <section className="pane pane--editor" aria-label="Editor">
       <div className="toolbar">
         <button type="button" className="btn btn--ghost" onClick={() => picker.current?.click()}>
           Open file
         </button>
-        <input ref={picker} className="sr-only" type="file" accept={ACCEPT} aria-label="Open a .tex or .txt file" tabIndex={-1} onChange={(e) => { void takeFile(e.target.files?.[0]); e.target.value = ""; }} />
-        <button type="button" className="btn btn--ghost" onClick={onSample}>
-          Load sample
-        </button>
+        <input ref={picker} className="sr-only" type="file" accept={accept.join(",")} aria-label={`Open a ${accept.join(" or ")} file`} tabIndex={-1} onChange={(e) => { void takeFile(e.target.files?.[0]); e.target.value = ""; }} />
+        {tool.sample ? (
+          <button type="button" className="btn btn--ghost" onClick={onSample}>
+            Load sample
+          </button>
+        ) : null}
         <button type="button" className="btn btn--ghost" onClick={onClear}>
           Clear
         </button>
@@ -85,7 +91,7 @@ export function EditorPane({ source, onChange, onFile, onCompile, onSample, onCl
         className={`dropzone${dragging ? " dropzone--active" : ""}`}
         data-testid="dropzone"
         role="group"
-        aria-label="LaTeX editor and file drop zone"
+        aria-label="Editor and file drop zone"
         onDragEnter={(e) => {
           if (!hasFiles(e)) return;
           depth.current += 1;
@@ -111,8 +117,8 @@ export function EditorPane({ source, onChange, onFile, onCompile, onSample, onCl
         <textarea
           ref={area}
           className="editor"
-          aria-label="LaTeX source"
-          placeholder={"Paste LaTeX here, or drop a .tex / .txt file anywhere on this side.\n\n\\documentclass{article}\n\\begin{document}\nHello!\n\\end{document}"}
+          aria-label="Input text"
+          placeholder={`Paste text here, or drop a ${accept.join(" / ")} file anywhere on this side.`}
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"

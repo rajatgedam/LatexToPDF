@@ -9,6 +9,11 @@ Append-only milestone log. Newest at the bottom. Update after every milestone (a
 | M2 | Secure local HTTP server | done | 2026-10-28 |
 | M3 | React UI (editor, drop zone, preview, download) | done | 2026-10-28 |
 | M4 | Portable package + final README | done | 2026-10-28 |
+| M5 | Public repo, CI, Docker, release pipeline, Pages | done | 2026-10-28 |
+| M6 | Rename to ToolMaster; modular core + tools architecture | done | 2026-10-29 |
+| M7 | LaTeX to DOCX tool, start menus (web + terminal), per-tool bundles | done | 2026-10-29 |
+
+Note: entries below dated 2026-10-28 describe the LatexToPDF layout (`src/`, `LATEX2PDF_*`, `/api/compile`); the code moved in M6, see the 2026-10-29 section for the current names.
 
 ## 2026-10-28 M0 research notes
 - No LaTeX engine was installed. Chosen: Tectonic 0.17.0 standalone binary (MIT). `brew install tectonic` was declined because it pulls 20 new deps and upgrades `gettext`/`libunistring`.
@@ -67,3 +72,14 @@ Vite 8 + React 19 + TypeScript 7 + Vitest 5 in `web/` (0 npm audit findings). Te
 - Linux sandbox via bubblewrap/Landlock; Windows AppContainer.
 - Multi-file projects (zip with images/bib) with a validated, sandboxed extraction.
 - Template gallery for the UI; PDF page thumbnails; export `.tex` back.
+
+## 2026-10-29 M6/M7 ToolMaster: modular tools, LaTeX to DOCX, menus
+- Rename: GitHub repo `ToolMaster`, folder `RGit/ToolMaster`, package `toolmaster`, `TOOLMASTER_*` env, `toolmaster` CLI, `X-ToolMaster-*` headers, images `ghcr.io/rajatgedam/toolmaster[-<tool>]`.
+- Architecture: kernel in `core/` (config, errors, sdk, manifest, registry, runner, process, engines, installer, sandbox, cli, server, portable) and one folder per tool in `tools/<id>/`. Tools import only `core/sdk.mjs`; the core discovers tools at runtime (or gets a generated static list in the executable). The generic runner validates input/options/limits for every tool; `ctx.exec` is the single hardened path for external programs. The old engine code became `core/process.mjs` + `core/engines.mjs`; the LaTeX specifics moved to `tools/latex-to-pdf/`.
+- New tool `latex-to-docx`: Pandoc 3.13 (`--sandbox`, GPL-2.0+ so downloaded/bundled as a separate program with THIRD-PARTY-NOTICES), options `mode` and `toc`, HTML preview (pandoc `-s --mathml`, CSP injected, shown in a `sandbox=""` iframe). Verified on the user's real resume: PDF 1 page, DOCX converts structure (bullets, links, headings); layout macros are dropped, as expected.
+- Menus: web start menu (search, category sections, cards with readiness and install hint, `/` and `1-9` keys) and an interactive terminal menu (`toolmaster` without arguments; choose a tool, answer prompts for input, output and options; install/repair engines).
+- Web: generic `Home` + `Workbench` driven by `GET /api/tools` (options bar from the manifest, text editor or binary file pane, `file`/`html`/`none` previews, hash routing). 56 web tests, 95% line coverage.
+- Per-tool downloads: `npm run package -- --tools <ids>` (generated bundle entry imports only those tools; only their engines and caches are copied), release workflow builds `all`, `latex-to-pdf`, `latex-to-docx` for 5 OS targets with an offline smoke test per bundle, Docker `ARG TOOLS` (+ CI proves a one-tool image lists exactly one tool). Measured macOS arm64 zips: all 107 MB, docx 76 MB, pdf 66 MB (launcher 111 MB, Pandoc ~190 MB unpacked).
+- Tests: 190 unit + integration for both tools, server, sandbox (incl. Pandoc blocked by the OS sandbox alone) and bundles.
+- Findings: the terminal menu looped forever on EOF because `readline` yields `null`, not `undefined` (fixed + test); pandoc fails on unbalanced LaTeX with a readable message (surfaced as TOOL_FAILED); plain `--wrap=none` Pandoc fragments omit `\maketitle` data, so the preview uses `-s`; jsdom `Blob` in `new Response()` stringifies to `[object Blob]`.
+- Not done: Linux/Windows OS sandbox; no shared engine-spec registry (a second Pandoc-based tool would duplicate the spec); releases still unpublished (tag `v0.2.0` when ready).

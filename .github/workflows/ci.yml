@@ -31,36 +31,55 @@ jobs:
       - run: npm --prefix web ci
       - run: npm audit --omit=dev --audit-level=high
       - run: npm --prefix web audit --omit=dev --audit-level=high
-      - run: npm run install:engine
+      - run: node bin/toolmaster.mjs install
       - run: npm run build:web
       - run: npm run test:web
       - name: Backend unit + integration tests with coverage gate (80% lines)
         run: npm run coverage
 
   docker:
-    name: Docker image smoke test
+    name: Docker (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: all, tools: all, expect: 2 }
+          - { name: latex-to-docx only, tools: latex-to-docx, expect: 1 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
       - name: Build
-        run: docker build -t latextopdf:ci .
+        run: docker build --build-arg TOOLS=${{ matrix.tools }} -t toolmaster:ci .
       - name: Run hardened (non-root, read-only rootfs, no capabilities)
         run: |
-          docker run -d --name l2p -p 127.0.0.1:5757:5757 \
+          docker run -d --name tm -p 127.0.0.1:5757:5757 \
             --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
-            latextopdf:ci
-      - name: Health, compile and non-root check
+            toolmaster:ci
+      - name: Catalog, conversions, non-root and Host checks
         run: |
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5757/api/health && break; sleep 1; done
-          curl -sf http://127.0.0.1:5757/api/health | grep '"found":true'
-          code=$(curl -s -o "$RUNNER_TEMP/out.pdf" -w '%{http_code}' -X POST -H 'content-type: text/plain' \
-            --data-binary @examples/resume.tex http://127.0.0.1:5757/api/compile)
-          if [ "$code" != "200" ]; then echo "compile returned HTTP $code"; cat "$RUNNER_TEMP/out.pdf"; exit 1; fi
-          head -c 5 "$RUNNER_TEMP/out.pdf" | grep -q '%PDF-'
-          test "$(docker exec l2p id -u)" != "0"
+          test "$(curl -sf http://127.0.0.1:5757/api/tools | grep -o '"id":"' | wc -l)" = "${{ matrix.expect }}"
+          run_tool() { # id extension
+            node bin/toolmaster.mjs sample "$1" > "$RUNNER_TEMP/in-$1.txt"
+            code=$(curl -s -o "$RUNNER_TEMP/out-$1.$2" -w '%{http_code}' -X POST -H 'content-type: text/plain' \
+              --data-binary @"$RUNNER_TEMP/in-$1.txt" "http://127.0.0.1:5757/api/tools/$1/run")
+            if [ "$code" != "200" ]; then echo "$1 returned HTTP $code"; cat "$RUNNER_TEMP/out-$1.$2"; exit 1; fi
+          }
+          if curl -sf http://127.0.0.1:5757/api/tools | grep -q '"id":"latex-to-docx"'; then
+            run_tool latex-to-docx docx
+            head -c 2 "$RUNNER_TEMP/out-latex-to-docx.docx" | grep -q PK
+          fi
+          if curl -sf http://127.0.0.1:5757/api/tools | grep -q '"id":"latex-to-pdf"'; then
+            run_tool latex-to-pdf pdf
+            head -c 5 "$RUNNER_TEMP/out-latex-to-pdf.pdf" | grep -q '%PDF-'
+          fi
+          test "$(docker exec tm id -u)" != "0"
           curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: evil.test' http://127.0.0.1:5757/api/health | grep -q 403
       - name: Container logs on failure
         if: failure()
-        run: docker logs l2p
+        run: docker logs tm

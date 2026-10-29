@@ -1,12 +1,17 @@
-export const MAX_BYTES = 1_048_576;
-export const ACCEPT = ".tex,.latex,.txt,text/plain";
+export const DEFAULT_MAX_BYTES = 1_048_576;
 
-const ALLOWED = /\.(tex|latex|txt)$/i;
+export function formatBytes(n: number): string {
+  if (n >= 1_048_576) return `${+(n / 1_048_576).toFixed(1)} MiB`;
+  if (n >= 1024) return `${+(n / 1024).toFixed(1)} KiB`;
+  return `${n} B`;
+}
 
-/** Returns a friendly error message, or null if the file is fine. */
-export function validateFile(file: File): string | null {
-  if (!ALLOWED.test(file.name)) return "Only .tex, .latex or .txt files, please.";
-  if (file.size > MAX_BYTES) return "That file is over the 1 MiB limit.";
+const extOf = (name: string) => (/\.[^./\\]+$/.exec(name)?.[0] ?? "").toLowerCase();
+
+/** Returns a friendly error message, or null if the file is fine for this tool. */
+export function validateFile(file: File, accept: string[], maxBytes = DEFAULT_MAX_BYTES): string | null {
+  if (!accept.includes(extOf(file.name))) return `Only ${accept.join(", ")} files, please.`;
+  if (file.size > maxBytes) return `That file is over the ${formatBytes(maxBytes)} limit.`;
   return null;
 }
 
@@ -19,9 +24,9 @@ export function readFileText(file: File): Promise<string> {
   });
 }
 
-/** Derive a safe download name (`my cv.tex` -> `my cv.pdf`). */
-export function pdfNameFor(fileName: string | null): string {
+/** Derive a safe download name (`my cv.tex` -> `my cv.docx`). */
+export function outputNameFor(fileName: string | null, extension: string): string {
   const base = (fileName ?? "").split(/[\\/]/).pop() ?? "";
-  const stem = base.replace(ALLOWED, "").replace(/[^\p{L}\p{N} _.()-]/gu, "").trim();
-  return `${stem || "resume"}.pdf`;
+  const stem = base.replace(/\.[^.]*$/, "").replace(/[^\p{L}\p{N} _.()-]/gu, "").trim();
+  return `${stem || "result"}.${extension}`;
 }

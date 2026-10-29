@@ -1,6 +1,6 @@
 # Design Language: "Doodle Desk"
 
-Research basis: Nielsen Norman Group on microinteractions (trigger -> small, purposeful feedback; show system status, support undo, express brand, keep animations short and non-intrusive) and Material 3 layout guidance (clear hierarchy, landmarks and a single H1, 44 px minimum pointer targets, 8 px spacing, visible focus, sufficient contrast). Personality: a friendly desk where your LaTeX gets "printed".
+Research basis: Nielsen Norman Group on microinteractions (trigger -> small, purposeful feedback; show system status, support undo, express brand, keep animations short and non-intrusive) and Material 3 layout guidance (clear hierarchy, landmarks and a single H1, 44 px minimum pointer targets, 8 px spacing, visible focus, sufficient contrast). Personality: a friendly desk where your files get "printed".
 
 ## Principles
 1. **One screen, two halves.** Left = write/drop, right = result. Nothing else competes.
@@ -48,5 +48,11 @@ Left pane: toolbar (Open file, Sample, Clear, Auto-compile toggle), editor with 
 ## Microcopy tone
 Short, warm, slightly cheeky: "Drop your .tex here", "Typesetting... hold my coffee", "Ta-da! Your PDF is ready", "Hmm, LaTeX is grumpy. Here is why:". Never blame the user; always show the actionable log line.
 
+## Start menu (home)
+The first screen is a menu, not a tool: Texy the mascot (happy) next to "What shall we make today?", a pill-shaped search box (`/` focuses it), then one section per category (small caps heading) with sticker cards. A card has a yellow icon tile, name, one-line description, chips (`.tex → .pdf`, `Ready` teal or `Needs setup` berry with the exact install command) and a numbered key badge (`1`-`9` opens that tool). Cards stagger in (60 ms steps), lift and tilt 0.4deg on hover, press down on click. Cards are plain links (`#/tool/<id>`), so they work with keyboard, middle-click and screen readers. Empty search: a friendly "Nothing matches" line; no tools: "No tools are installed in this build".
+
+## Tool page (workbench)
+Top bar: `← All tools` pill, tool icon + name (h2), then the tool's options (select / checkbox rendered from its manifest), the Auto-run switch (text tools) and the coral action button with the tool's own verb (Compile, Convert, ...). Below: editor (or a dashed file drop for binary tools) on the left, result on the right, a thin status bar (chars/size, engine version or install hint). Result kinds: PDF viewer, sandboxed HTML preview, or a "Your DOCX file is ready" card with Texy. Everything tool-specific comes from the manifest; do not hard-code tool names in UI components.
+
 ## Component inventory
-`Header`, `DropZone`, `EditorPane`, `Toolbar`, `StatusPill`, `PreviewPane`, `Mascot`, `Confetti`, `ErrorLog`, `Footer`.
+`Header` (brand link, in `App`), `Home`, `Workbench`, `OptionsBar`, `EditorPane`, `FilePane`, `ResultPane`, `StatusPill`, `Mascot`, `Confetti`, `ErrorLog`, footer (in `App`).
