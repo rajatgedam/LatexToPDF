@@ -55,8 +55,9 @@ jobs:
         run: |
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5757/api/health && break; sleep 1; done
           curl -sf http://127.0.0.1:5757/api/health | grep '"found":true'
-          curl -sf -X POST -H 'content-type: text/plain' --data-binary @examples/resume.tex \
-            http://127.0.0.1:5757/api/compile -o "$RUNNER_TEMP/out.pdf"
+          code=$(curl -s -o "$RUNNER_TEMP/out.pdf" -w '%{http_code}' -X POST -H 'content-type: text/plain' \
+            --data-binary @examples/resume.tex http://127.0.0.1:5757/api/compile)
+          if [ "$code" != "200" ]; then echo "compile returned HTTP $code"; cat "$RUNNER_TEMP/out.pdf"; exit 1; fi
           head -c 5 "$RUNNER_TEMP/out.pdf" | grep -q '%PDF-'
           test "$(docker exec l2p id -u)" != "0"
           curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: evil.test' http://127.0.0.1:5757/api/health | grep -q 403
