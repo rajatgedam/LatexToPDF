@@ -103,3 +103,9 @@ Research, sources and measurements are in `RESEARCH.md`. Summary of what changed
 - **Cleanup**: removed `scripts/prune-tools.mjs` (Docker no longer prunes), the stale `vendor/tectonic-cache`, `dist/` build output and stray draft files.
 - Tests: 329 backend (99.3% line coverage) + 62 web, all green locally.
 - Backlog: OCR for scanned PDFs (an optional engine, e.g. Tesseract, would be a new catalog entry); a `merge` mode for pdf-pages; Linux/Windows OS sandbox (bubblewrap/Landlock, AppContainer); code signing; evaluating `zstd` packs when Node marks them stable; per-engine pack cache to avoid re-packing Pandoc for each bundle build; HTTP transport for MCP.
+
+## 2026-10-30 LaTeX to DOCX preview fix, release dry run
+- **Bug**: the HTML preview of LaTeX to DOCX looked blank (found while converting a real resume). Cause: the preview page is a blob URL in a sandboxed iframe, and blob pages **inherit the app's CSP**. Pandoc's standalone page carries an inline `<style>` that `style-src 'self'` blocked, so the browser fell back to its default light text (dark-mode scheme inherited from the app) on the white frame: invisible text. The server and the DOCX were always fine.
+- **Fix** (no CSP loosening): `lockDown()` in `tools/latex-to-docx/preview.mjs` drops the blocked `<style>`, adds `<meta name="color-scheme" content="light">` and sets `bgcolor`/`text`/`link` on `<body>` (plain attributes are not CSP-controlled); `.stage__frame` has `color-scheme: light`. The preview is now an intentionally plain approximation; the DOCX is the real output. Rule recorded in SECURITY_RULES R4.6. Verified in a real browser (headings, list, table, MathML formula visible). Tests: 4 unit tests for `lockDown`.
+- **Finding**: a screenshot of the result pane, not DOM/accessibility snapshots, is what finds this class of bug (the DOM was complete).
+- Services were stopped after verification (UI server on port 5757 no longer running).

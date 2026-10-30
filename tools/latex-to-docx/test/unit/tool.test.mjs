@@ -87,7 +87,7 @@ test("preview returns a self-contained, locked-down HTML page", async () => {
   const html = p.data.toString();
   assert.match(p.contentType, /^text\/html/);
   assert.match(html, /<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:">/);
-  assert.match(html, /<body><p>fake<\/p><\/body>/);
+  assert.match(html, /<body bgcolor="#ffffff"[^>]*><p>fake<\/p><\/body>/);
   const withMath = argsOf({ data: Buffer.from("xx" + (await preview("\\a %%ARGS", {})).data.toString().replace(/^.*<pre>/s, "").replace(/<\/pre>.*$/s, "")) });
   assert.ok(withMath.args.includes("--mathml"));
   assert.equal(withMath.args[withMath.args.indexOf("-t") + 1], "html5");
