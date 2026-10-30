@@ -53,3 +53,7 @@ node scripts/smoke-bundle.mjs dist/ToolMaster-pdf-pages-lite
 - Do not run `npm run coverage` while a Brotli-11 packaging job runs; both are CPU heavy and the sandboxed cold-cache test is time sensitive.
 - No overwrite tool exists in this environment: replace a file by removing it and creating it again, or edit in place.
 - Never commit the user's resume files (`RGit/VKProfile`), `vendor/` or `dist/`.
+
+## Update 2026-10-30
+- CI green on `65cfa69`. Release workflow dry run (all-in-one on 5 platforms) green. LaTeX to DOCX preview fixed (see PROGRESS.md and SECURITY_RULES R4.6). No services are left running.
+- Remaining for the owner: push tag `v0.3.0`, make GHCR packages public. Optional: run Release with `full=true` first.
