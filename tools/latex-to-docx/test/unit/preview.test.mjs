@@ -15,7 +15,16 @@ test("a bare fragment is wrapped into a locked-down document", () => {
   const out = lockDown("<p>fake</p>");
   assert.match(out, /^<!doctype html>/);
   assert.ok(out.includes(CSP));
-  assert.match(out, /<body><p>fake<\/p><\/body>/);
+  assert.match(out, /<body bgcolor="#ffffff" text="#1a1a1a"[^>]*><p>fake<\/p><\/body>/);
+  assert.match(out, /color-scheme" content="light"/);
+});
+
+test("inline CSS (blocked by the inherited CSP anyway) is dropped and light colours are set with plain attributes", () => {
+  const out = lockDown('<html><head><style>html{color:light-dark(#111,#eee)}</style></head><body class="x"><p>Hi</p></body></html>');
+  assert.ok(!out.includes("<style"));
+  assert.match(out, /<body class="x" bgcolor="#ffffff" text="#1a1a1a"/);
+  assert.match(out, /<meta name="color-scheme" content="light">/);
+  assert.equal(lockDown(out).match(/bgcolor=/g).length, 1, "applying it twice does not repeat the attributes");
 });
 
 test("head tags with attributes are handled", () => {

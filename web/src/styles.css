@@ -389,6 +389,7 @@ kbd {
   width: 100%;
   border: 0;
   background: #fff;
+  color-scheme: light;
   animation: fade-in 0.4s ease-out;
 }
 .stage__text {
