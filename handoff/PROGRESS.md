@@ -112,3 +112,8 @@ Research, sources and measurements are in `RESEARCH.md`. Summary of what changed
 - **CI**: first push of the preview fix failed (`tool.test.mjs` still expected the old `<body>` markup; I had only run the preview unit tests). Lesson: run `npm test` before pushing. Fixed in `65cfa69`; CI green (macOS + Ubuntu tests, lite smoke, 3 Docker jobs).
 - **Release dry run** (`workflow_dispatch`, `full=false`, run 40979181323): plan + all five all-in-one bundles (darwin arm64/x64, linux x64/arm64, win32 x64) built and smoke-tested; Docker and publish jobs skipped as designed. Not yet exercised: `full=true` (every bundle) and the Docker/publish path, which only run for a `v*` tag.
 - Next: tag `v0.3.0` (publishes), then make the GHCR packages public; optional `full=true` dry run first.
+
+## 2026-10-30 Resume-style DOCX tests
+- Added `tools/latex-to-docx/test/integration/resume.test.mjs` with a synthetic resume fixture (`test/fixtures/resume.tex`) and a tiny DOCX reader (`test/docx-parts.mjs`, no dependencies). It checks headings, bullets, links, escaped symbols and no leftover LaTeX.
+- Real files are tested without storing them: `TOOLMASTER_SAMPLES_DIR=<folder> npm run test:integration`. The two VK v2 resumes pass.
+- Known limitation: `\hfill` becomes a single space, so a role and its dates run together ("Senior Analyst Jan 2025 – Present"). A right-aligned tab would need a custom DOCX template or post-processing.
