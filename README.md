@@ -25,7 +25,7 @@ node bin/toolmaster.mjs doctor --json        # {"ok":true,"tools":{"latex-to-pdf
 node bin/toolmaster.mjs list --json          # every tool, its options, use-when hint and readiness
 ```
 
-If a tool is not `ready`: `node bin/toolmaster.mjs install [tool ...]` (SHA-256 verified downloads). Node >= 22.13 for a source checkout or a lite download; the single-executable downloads need no Node.
+If a tool is not `ready`: `node bin/toolmaster.mjs install [tool ...]` (SHA-256 verified downloads). From a fresh source checkout run `npm run setup` once first (installs the two pinned PDF libraries and the engines, and builds the web app); without it `pdf-pages` and PDF reading fail with "Cannot find package". Node >= 22.13 for a source checkout or a lite download; the single-executable downloads need no Node.
 
 ### 1. MCP server (best for agents)
 

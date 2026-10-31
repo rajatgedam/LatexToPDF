@@ -17,7 +17,7 @@
     "./sdk": "./core/sdk.mjs"
   },
   "scripts": {
-    "setup": "node bin/toolmaster.mjs install && npm --prefix web install && npm run build:web",
+    "setup": "npm ci && node bin/toolmaster.mjs install && npm --prefix web install && npm run build:web",
     "install:engines": "node bin/toolmaster.mjs install",
     "warmup": "node bin/toolmaster.mjs warmup",
     "build:web": "npm --prefix web run build",
