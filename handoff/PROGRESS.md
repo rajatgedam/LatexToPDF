@@ -117,3 +117,7 @@ Research, sources and measurements are in `RESEARCH.md`. Summary of what changed
 - Added `tools/latex-to-docx/test/integration/resume.test.mjs` with a synthetic resume fixture (`test/fixtures/resume.tex`) and a tiny DOCX reader (`test/docx-parts.mjs`, no dependencies). It checks headings, bullets, links, escaped symbols and no leftover LaTeX.
 - Real files are tested without storing them: `TOOLMASTER_SAMPLES_DIR=<folder> npm run test:integration`. The two VK v2 resumes pass.
 - Known limitation: `\hfill` becomes a single space, so a role and its dates run together ("Senior Analyst Jan 2025 – Present"). A right-aligned tab would need a custom DOCX template or post-processing.
+
+## 2026-10-30 Fresh-clone check
+- Cloned from GitHub into an empty folder and ran `npm run setup`, `npm test`, a DOCX and a PDF conversion. Found: `setup` did not run `npm ci` for the root, so `pdf-pages` and PDF reading failed ("Cannot find package '@cantoo/pdf-lib'") while `doctor` said ready (those tools have no engine to check). Fixed: `setup` starts with `npm ci`; README says so. Re-verified on a new clone: setup + integration tests pass.
+- Not in the repo (by design): `vendor/` (engines download on `setup`/first use), `dist/`, `node_modules/`. The VKProfile folder next to the repo is not under git, so back it up separately.
